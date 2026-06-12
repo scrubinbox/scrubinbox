@@ -1,22 +1,47 @@
 <script>
-  import { selectedDomains, expandedDomains } from '../stores/cleanupStore.js';
+  import { selectedThreadIds, expandedDomains } from '../stores/cleanupStore.js';
 
   export let domain;
   export let info;
 
-  let isSelected = false;
   let isExpanded = false;
+  let threadIds = [];
+  let selectedInDomain = 0;
+  let isFullySelected = false;
+  let isIndeterminate = false;
+  let isAnySelected = false;
 
-  $: isSelected = $selectedDomains.has(domain);
+  $: threadIds = (info.threads || []).map(t => t.thread_id);
   $: isExpanded = $expandedDomains.has(domain);
+  $: {
+    selectedInDomain = 0;
+    for (const id of threadIds) {
+      if ($selectedThreadIds.has(id)) selectedInDomain++;
+    }
+    isFullySelected = threadIds.length > 0 && selectedInDomain === threadIds.length;
+    isIndeterminate = selectedInDomain > 0 && selectedInDomain < threadIds.length;
+    isAnySelected = selectedInDomain > 0;
+  }
 
-  function toggleSelection() {
-    selectedDomains.update(set => {
+  function toggleDomain() {
+    selectedThreadIds.update(set => {
       const newSet = new Set(set);
-      if (newSet.has(domain)) {
-        newSet.delete(domain);
+      if (isFullySelected) {
+        for (const id of threadIds) newSet.delete(id);
       } else {
-        newSet.add(domain);
+        for (const id of threadIds) newSet.add(id);
+      }
+      return newSet;
+    });
+  }
+
+  function toggleThread(threadId) {
+    selectedThreadIds.update(set => {
+      const newSet = new Set(set);
+      if (newSet.has(threadId)) {
+        newSet.delete(threadId);
+      } else {
+        newSet.add(threadId);
       }
       return newSet;
     });
@@ -35,15 +60,16 @@
   }
 </script>
 
-<div class="transition-colors" class:bg-sage-50={isSelected} class:hover:bg-sage-50={!isSelected}>
+<div class="transition-colors" class:bg-sage-50={isAnySelected} class:hover:bg-sage-50={!isAnySelected}>
   <div class="px-3 sm:px-5 py-2.5">
     <div class="flex items-center gap-2 sm:gap-3">
       <div class="w-5 flex-shrink-0">
         <input
           type="checkbox"
           class="h-5 w-5 text-sage-600 border-sage-300 rounded cursor-pointer focus:ring-2 focus:ring-sage-300"
-          checked={isSelected}
-          on:change={toggleSelection}
+          checked={isFullySelected}
+          indeterminate={isIndeterminate}
+          on:change={toggleDomain}
         >
       </div>
 
@@ -53,7 +79,7 @@
 
       <div class="w-14 sm:w-16 flex-shrink-0 text-right">
         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sage-100 text-sage-600">
-          {info.count}
+          {#if isAnySelected && selectedInDomain < info.count}{selectedInDomain}/{info.count}{:else}{info.count}{/if}
         </span>
       </div>
 
@@ -80,15 +106,30 @@
           <div class="text-xs text-sage-300 italic">No threads available</div>
         {:else}
           <div class="space-y-1 max-h-60 overflow-y-auto">
-            {#each info.threads as thread}
-              <div class="text-xs bg-sage-50 rounded-md p-2 border border-sage-100">
-                <div class="font-medium text-sage-700 break-words" title={thread.subject}>
-                  {thread.subject}
+            {#each info.threads as thread (thread.thread_id)}
+              {@const threadSelected = $selectedThreadIds.has(thread.thread_id)}
+              <label
+                class="flex items-start gap-2 text-xs rounded-md p-2 border cursor-pointer transition-colors"
+                class:bg-white={threadSelected}
+                class:border-sage-300={threadSelected}
+                class:bg-sage-50={!threadSelected}
+                class:border-sage-100={!threadSelected}
+              >
+                <input
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 text-sage-600 border-sage-300 rounded cursor-pointer focus:ring-2 focus:ring-sage-300 flex-shrink-0"
+                  checked={threadSelected}
+                  on:change={() => toggleThread(thread.thread_id)}
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-sage-700 break-words" title={thread.subject}>
+                    {thread.subject}
+                  </div>
+                  <div class="text-sage-400 mt-0.5">
+                    {thread.sender} ({thread.message_count} {thread.message_count === 1 ? 'msg' : 'msgs'})
+                  </div>
                 </div>
-                <div class="text-sage-400 mt-0.5">
-                  {thread.sender} ({thread.message_count} {thread.message_count === 1 ? 'msg' : 'msgs'})
-                </div>
-              </div>
+              </label>
             {/each}
           </div>
         {/if}
