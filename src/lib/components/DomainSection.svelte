@@ -1,6 +1,6 @@
 <script>
   import { domains, collectionResult } from '../stores/collectionStore.js';
-  import { isCleaning, hasSelection, selectedDomains, selectedCount } from '../stores/cleanupStore.js';
+  import { isCleaning, hasSelection, selectedThreadIds, selectedCount } from '../stores/cleanupStore.js';
   import { errorMessage } from '../stores/progressStore.js';
   import { domainsVisible, showProgress } from '../stores/uiStore.js';
   import { CleanerConfig } from '../models/index.js';
@@ -40,17 +40,21 @@
   }
 
   function selectAll() {
-    selectedDomains.update(set => {
+    selectedThreadIds.update(set => {
       const newSet = new Set(set);
-      filteredDomains.forEach(([domain]) => newSet.add(domain));
+      filteredDomains.forEach(([, info]) => {
+        (info.threads || []).forEach(thread => newSet.add(thread.thread_id));
+      });
       return newSet;
     });
   }
 
   function deselectAll() {
-    selectedDomains.update(set => {
+    selectedThreadIds.update(set => {
       const newSet = new Set(set);
-      filteredDomains.forEach(([domain]) => newSet.delete(domain));
+      filteredDomains.forEach(([, info]) => {
+        (info.threads || []).forEach(thread => newSet.delete(thread.thread_id));
+      });
       return newSet;
     });
   }
@@ -62,14 +66,14 @@
     const warning = permanentDelete
       ? 'This CANNOT be undone. Threads will be permanently deleted.'
       : 'Threads will be moved to trash and can be recovered within 30 days.';
-    if (!confirm(`Are you sure you want to ${action} threads from the selected sender domains?\n\n${warning}`)) {
+    if (!confirm(`Are you sure you want to ${action} the selected threads?\n\n${warning}`)) {
       return;
     }
 
     $isCleaning = true;
     showProgress();
 
-    const threads = $collectionResult.getCleanupThreads($selectedDomains);
+    const threads = $collectionResult.getCleanupThreads($selectedThreadIds);
 
     const config = new CleanerConfig({ permanentDelete });
     const progressHandler = createProgressHandler();
@@ -166,7 +170,7 @@
       <div class="px-3 sm:px-5 py-3 bg-sage-50 border-t border-sage-100">
         <div class="flex flex-col sm:flex-row sm:items-center gap-3">
           <div class="text-xs font-semibold text-sage-600">
-            {$selectedCount} sender {$selectedCount === 1 ? 'domain' : 'domains'} selected
+            {$selectedCount} {$selectedCount === 1 ? 'thread' : 'threads'} selected
           </div>
 
           <div class="flex items-center gap-3 sm:ml-auto">

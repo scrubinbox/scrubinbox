@@ -231,20 +231,17 @@ export class CollectionResult {
   }
 
   /**
-   * Build an array of CleanupThread objects for the given set of domains.
+   * Build an array of CleanupThread objects for the given set of thread IDs.
    *
-   * @param {Set<string>} selectedDomains
+   * @param {Set<string>} selectedThreadIds
    * @returns {CleanupThread[]}
    */
-  getCleanupThreads(selectedDomains) {
+  getCleanupThreads(selectedThreadIds) {
     const threads = [];
-    for (const domain of selectedDomains) {
-      const threadIds = this.threadsByDomain[domain] || [];
-      for (const threadId of threadIds) {
-        const thread = this.threadsById[threadId];
-        if (thread) {
-          threads.push(CleanupThread.fromThread(thread));
-        }
+    for (const threadId of selectedThreadIds) {
+      const thread = this.threadsById[threadId];
+      if (thread) {
+        threads.push(CleanupThread.fromThread(thread));
       }
     }
     return threads;
