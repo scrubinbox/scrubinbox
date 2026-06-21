@@ -4,7 +4,7 @@ A free, open source tool to declutter your Gmail inbox. Scan your inbox by sende
 
 **Your emails never leave your browser.** This app runs entirely client-side. No server processes your data.
 
-[![CI](https://github.com/scrubinbox/scrubinbox.com/actions/workflows/ci.yml/badge.svg)](https://github.com/scrubinbox/scrubinbox.com/actions/workflows/ci.yml)
+[![CI](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml/badge.svg)](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Why?
