@@ -1,7 +1,7 @@
 {
   "name": "scrubinbox",
   "version": "0.1.0",
-  "description": "A free, open source tool to declutter your Gmail inbox",
+  "description": "Open-source Gmail inbox cleanup tool. Self-host for free, or use the hosted version at scrubinbox.com.",
   "type": "module",
   "license": "MIT",
   "repository": {

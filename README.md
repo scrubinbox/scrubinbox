@@ -80,6 +80,10 @@ npm test
 npm run build
 ```
 
+## Repository structure
+
+This is the public application repo. The production hosting infrastructure for `scrubinbox.com` lives in a private companion repo (`scrubinbox-infra`) and is not required for running or self-hosting this app.
+
 ## Contributing
 
 Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
