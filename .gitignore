@@ -51,10 +51,4 @@ lerna-debug.log*
 # Test coverage
 coverage/
 
-# OpenTofu / Terraform
-tf/.terraform/
-tf/*.tfstate
-tf/*.tfstate.backup
-tf/.terraform.lock.hcl
-tf/terraform.tfvars
-tf/run.sh
+# OpenTofu / Terraform configuration moved to the private scrubinbox-infra repo.

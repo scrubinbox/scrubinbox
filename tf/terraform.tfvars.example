@@ -1,3 +1,0 @@
-# All variables are set via environment variables.
-# TF_VAR_cloudflare_account_id - Cloudflare account ID
-# CLOUDFLARE_API_TOKEN - Cloudflare API token
