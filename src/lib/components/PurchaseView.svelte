@@ -1,6 +1,6 @@
 <script>
   import { showMain } from '../stores/uiStore.js';
-  import { isPaid } from '../stores/authStore.js';
+  import { isPaid, userEmail } from '../stores/authStore.js';
 
   // Phase 5 will wire this to LemonSqueezy hosted checkout with the
   // signed-in user's id passed in custom_data so the webhook can link
@@ -53,10 +53,16 @@
     </button>
 
     {#if !PURCHASE_AVAILABLE}
-      <p class="text-[11px] text-sage-400 mt-4">
-        Local dev: insert a row into <code class="bg-sage-100 px-1 rounded">entitlements</code>
-        via SQL to unlock paid actions (see <code class="bg-sage-100 px-1 rounded">apps/api/README.md</code>).
-      </p>
+      <div class="text-[11px] text-sage-400 mt-4 text-left">
+        <p class="mb-1.5">Local dev: run this in the Supabase SQL Editor (signed in once) to unlock paid actions:</p>
+        <pre class="bg-sage-100 rounded p-2 overflow-x-auto whitespace-pre"><code>{`INSERT INTO entitlements
+  (user_id, type, lemonsqueezy_order_id, lemonsqueezy_customer_id, early_adopter)
+VALUES (
+  (SELECT id FROM auth.users WHERE email = '${$userEmail || 'YOUR_EMAIL'}'),
+  'lifetime', 'mock-001', 'mock-cust-001', true
+);`}</code></pre>
+        <p class="mt-1.5">Then reload this page.</p>
+      </div>
     {/if}
 
     {#if $isPaid}
