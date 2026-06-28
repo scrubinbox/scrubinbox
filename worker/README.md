@@ -24,12 +24,13 @@ cp .dev.vars.example .dev.vars      # worker env (SUPABASE_URL + anon + service-
 # (Project Settings → API).
 
 npm install
-npm run dev          # Vite SPA on :5173 with HMR
-npm run dev:worker   # in a second terminal — wrangler on :8787
+npm run dev          # one terminal — Vite + Worker in a single process via
+                     # @cloudflare/vite-plugin (workerd embedded in Vite's
+                     # dev server). HMR for both client and server. /api/*
+                     # routes to Hono handlers; SPA served at /.
 ```
 
-Vite proxies `/api/*` to wrangler, so the browser only ever talks to
-`http://localhost:5173` — no CORS to fight.
+Open http://localhost:5173 — same-origin for both the app and the API.
 
 ## Mock-paying a user in local dev
 
@@ -71,8 +72,9 @@ wrangler secret put SUPABASE_ANON_KEY --env staging
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY --env staging
 wrangler secret put LEMONSQUEEZY_WEBHOOK_SECRET --env staging
 
-# Deploy:
-npm run deploy                 # builds SPA + deploys Worker (default env)
+# Deploy (runs `vite build` then `wrangler deploy` against the generated
+# dist/scrubinbox/wrangler.json):
+npm run deploy
 npm run deploy -- --env staging
 ```
 
