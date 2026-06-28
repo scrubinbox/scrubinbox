@@ -52,3 +52,6 @@ lerna-debug.log*
 coverage/
 
 # OpenTofu / Terraform configuration moved to the private scrubinbox-infra repo.
+
+# Personal/operational notes that must not be published.
+productization.md
