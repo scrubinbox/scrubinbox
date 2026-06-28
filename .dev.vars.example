@@ -1,0 +1,11 @@
+# Worker secrets for `wrangler dev`. Copy to .dev.vars (gitignored) and fill in.
+#
+# Staging values: Supabase dashboard for jjbychixggcefuxznprp → Project Settings → API
+# Prod values (when Phase 4 closer): Supabase dashboard for dmegzutullpjzjwnipnx
+
+SUPABASE_URL = "https://jjbychixggcefuxznprp.supabase.co"
+SUPABASE_ANON_KEY = ""
+SUPABASE_SERVICE_ROLE_KEY = ""
+
+# Phase 5 — leave blank for now; webhook handler 501s without a secret.
+LEMONSQUEEZY_WEBHOOK_SECRET = ""

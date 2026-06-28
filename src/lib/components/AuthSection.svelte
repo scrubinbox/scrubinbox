@@ -1,53 +1,89 @@
 <script>
-  import { onMount } from 'svelte';
-  import { isAuthenticated, userEmail } from '../stores/authStore.js';
-  import { initGoogleLibraries, requestAccessToken, revokeToken } from '../gmail/auth.js';
-  import { getProfile } from '../gmail/api.js';
+  import { onMount, onDestroy } from 'svelte';
+  import { isAuthenticated, userEmail, isPaid, entitlementLoaded } from '../stores/authStore.js';
+  import { supabase } from '../supabase/client.js';
+  import { getMe } from '../supabase/api.js';
+  import { initGoogleLibraries, attachSessionToGapi, signIn, signOut } from '../gmail/auth.js';
   import { getErrorMessage } from '../errors.js';
 
   let authReady = false;
   let authBtnDisabled = false;
   let authBtnText = 'Sign in with Google';
   let authError = '';
+  let subscription = null;
+
+  async function refreshEntitlement() {
+    try {
+      const me = await getMe();
+      $isPaid = !!me.paid;
+    } catch (err) {
+      $isPaid = false;
+      authError = `Couldn't load entitlement: ${getErrorMessage(err)}`;
+    } finally {
+      $entitlementLoaded = true;
+    }
+  }
+
+  async function syncFromSession(session) {
+    if (!session) {
+      $isAuthenticated = false;
+      $userEmail = '';
+      $isPaid = false;
+      $entitlementLoaded = false;
+      return;
+    }
+    const attached = await attachSessionToGapi();
+    $isAuthenticated = attached;
+    $userEmail = session.user?.email ?? '';
+    if (attached) {
+      await refreshEntitlement();
+    }
+  }
 
   onMount(async () => {
     try {
       await initGoogleLibraries();
       authReady = true;
+
+      // Pick up an existing session (e.g. user revisits or just completed the
+      // OAuth redirect — detectSessionInUrl already exchanged the ?code=).
+      const { data } = await supabase.auth.getSession();
+      await syncFromSession(data.session);
+
+      // React to subsequent auth events (sign-out from another tab, token
+      // refresh that rotates provider_token, etc.).
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+        syncFromSession(session);
+      });
+      subscription = sub.subscription;
     } catch (error) {
       authError = `Failed to load Google libraries: ${getErrorMessage(error)}`;
     }
   });
 
-  async function signIn() {
+  onDestroy(() => {
+    subscription?.unsubscribe();
+  });
+
+  async function handleSignIn() {
     if (authBtnDisabled) return;
-
     authBtnDisabled = true;
-    authBtnText = 'Authenticating...';
+    authBtnText = 'Redirecting…';
     authError = '';
-
     try {
-      await requestAccessToken();
-      $isAuthenticated = true;
-      try {
-        const profile = await getProfile();
-        $userEmail = profile.emailAddress || '';
-      } catch (e) {
-        $userEmail = '';
-      }
+      await signIn();
+      // The page navigates away; nothing to do post-call.
     } catch (error) {
       authError = `Authentication failed: ${getErrorMessage(error)}`;
-    } finally {
       authBtnDisabled = false;
       authBtnText = 'Sign in with Google';
     }
   }
 
-  async function signOut() {
+  async function handleSignOut() {
     try {
-      await revokeToken();
-      $isAuthenticated = false;
-      $userEmail = '';
+      await signOut();
+      // onAuthStateChange clears the stores.
     } catch (error) {
       authError = `Sign out error: ${getErrorMessage(error)}`;
     }
@@ -69,7 +105,7 @@
         </div>
       </div>
       <button
-        on:click={signOut}
+        on:click={handleSignOut}
         class="px-3 py-1.5 text-xs font-medium text-sage-500 hover:text-sage-700 border border-sage-200 hover:border-sage-300 rounded-lg transition-colors"
       >
         Sign Out
@@ -83,12 +119,12 @@
         </div>
         <h2 class="text-lg font-bold text-sage-800 mb-1">Connect your Gmail</h2>
         <p class="text-sm text-sage-400 max-w-sm mx-auto">
-          Sign in to scan your inbox. Your data stays in your browser and is never sent to any server.
+          Sign in to scan your inbox. Your email content stays in your browser and is never sent to any server.
         </p>
       </div>
 
       <button
-        on:click={signIn}
+        on:click={handleSignIn}
         disabled={!authReady || authBtnDisabled}
         class="w-full max-w-xs mx-auto bg-sage-600 hover:bg-sage-700 text-white font-semibold py-2.5 px-6 rounded-lg disabled:bg-sage-200 disabled:cursor-not-allowed transition-colors text-sm"
       >

@@ -11,6 +11,7 @@
   import { createProgressHandler } from '../gmail/progressHandler.js';
   import { startProgressPolling, stopProgressPolling } from '../gmail/progressPoller.js';
   import { getErrorMessage } from '../errors.js';
+  import { postScanLog } from '../supabase/api.js';
 
   let includeArchived = false;
   let activeCollector = null;
@@ -43,6 +44,12 @@
 
       $collectionResult = result;
       $domains = result.getSortedDomainMap();
+
+      // Fire-and-forget scan log; failures shouldn't block the UI.
+      postScanLog({
+        threads_scanned: collector.progress.scanned,
+        threads_trashed: 0,
+      }).catch((err) => console.warn('scan-log POST failed:', err));
 
       setTimeout(() => {
         hideProgress();

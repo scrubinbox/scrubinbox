@@ -4,6 +4,18 @@ import { resultsVisible, resultsData } from './resultsStore.js';
 
 export const domainsVisible = writable(false);
 
+// 'main' | 'purchase' — purchase is the paywall screen shown when a
+// non-paying user tries to take a gated action (trash/delete).
+export const view = writable('main');
+
+export function showPurchase() {
+  view.set('purchase');
+}
+
+export function showMain() {
+  view.set('main');
+}
+
 export function showProgress() {
   progressVisible.set(true);
   domainsVisible.set(false);
