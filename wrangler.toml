@@ -1,0 +1,23 @@
+name = "scrubinbox"
+main = "worker/index.ts"
+compatibility_date = "2026-06-22"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers + Assets: this Worker serves both the SPA (built into ./dist by Vite)
+# and the /api/* routes. `run_worker_first = true` invokes the Worker for every
+# request — it routes /api/* to Hono handlers and falls through to env.ASSETS
+# for everything else. SPA fallback (deep links → index.html) is configured in
+# the Worker via env.ASSETS.fetch, not here.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = true
+
+# Local-dev secrets live in .dev.vars (gitignored).
+#
+# Required vars (set via `wrangler secret put` for staging/prod, in .dev.vars
+# for local):
+#   SUPABASE_URL                public API URL of the linked Supabase project
+#   SUPABASE_ANON_KEY           public anon key; used for JWT verification path
+#   SUPABASE_SERVICE_ROLE_KEY   bypasses RLS — webhook handler only
+#   LEMONSQUEEZY_WEBHOOK_SECRET HMAC-SHA256 signing secret (Phase 5)

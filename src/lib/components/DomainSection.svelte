@@ -2,12 +2,14 @@
   import { domains, collectionResult } from '../stores/collectionStore.js';
   import { isCleaning, hasSelection, selectedThreadIds, selectedCount } from '../stores/cleanupStore.js';
   import { errorMessage } from '../stores/progressStore.js';
-  import { domainsVisible, showProgress } from '../stores/uiStore.js';
+  import { domainsVisible, showProgress, showPurchase } from '../stores/uiStore.js';
+  import { isPaid } from '../stores/authStore.js';
   import { CleanerConfig } from '../models/index.js';
   import { DomainCleaner } from '../gmail/cleaner.js';
   import { createProgressHandler } from '../gmail/progressHandler.js';
   import { startProgressPolling, stopProgressPolling } from '../gmail/progressPoller.js';
   import { getErrorMessage } from '../errors.js';
+  import { postScanLog } from '../supabase/api.js';
   import DomainItem from './DomainItem.svelte';
 
   let searchQuery = '';
@@ -62,6 +64,12 @@
   async function executeCleanup() {
     if ($isCleaning) return;
 
+    // Paywall: scan is always free, trash/delete is gated.
+    if (!$isPaid) {
+      showPurchase();
+      return;
+    }
+
     const action = permanentDelete ? 'permanently delete' : 'trash';
     const warning = permanentDelete
       ? 'This CANNOT be undone. Threads will be permanently deleted.'
@@ -82,6 +90,11 @@
 
     try {
       await cleaner.cleanup(threads);
+      // Log the cleanup action — threads.length is what we attempted to remove.
+      postScanLog({
+        threads_scanned: 0,
+        threads_trashed: threads.length,
+      }).catch((err) => console.warn('scan-log POST failed:', err));
     } catch (error) {
       errorMessage.set(`Cleanup failed: ${getErrorMessage(error)}`);
     } finally {

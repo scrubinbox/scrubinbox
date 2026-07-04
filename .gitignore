@@ -11,6 +11,10 @@ dist-ssr/
 .env.*.local
 *.local
 
+# Wrangler / Cloudflare local state
+.dev.vars
+.wrangler/
+
 # Credentials (should never be committed)
 credentials.json
 token.json

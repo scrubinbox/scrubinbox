@@ -5,10 +5,12 @@
  * (set automatically by GIS after authentication).
  */
 
-import { requestAccessToken } from './auth.js';
+import { refreshGoogleAccessToken } from './auth.js';
 
 /**
  * Wraps an API call with automatic token refresh on 401 errors.
+ * Refresh goes through Supabase, which uses the stored Google refresh token
+ * to mint a new provider_token without showing a consent dialog.
  */
 async function withTokenRefresh(apiCall) {
   try {
@@ -16,7 +18,7 @@ async function withTokenRefresh(apiCall) {
     return response.result;
   } catch (err) {
     if (err.status === 401) {
-      await requestAccessToken();
+      await refreshGoogleAccessToken();
       const response = await apiCall();
       return response.result;
     }

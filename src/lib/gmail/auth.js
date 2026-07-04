@@ -1,24 +1,27 @@
 /**
- * Google Identity Services (GIS) + gapi.client initialization
+ * Gmail auth bridge: Supabase mediates OAuth, we use the resulting
+ * provider_token (Google access token) with gapi.client to call the Gmail API.
  *
- * Manages the two-library ready state and OAuth token lifecycle.
- * GIS automatically sets the access token in gapi.client after auth.
+ * Flow:
+ *   1. App calls signIn() → supabase.auth.signInWithOAuth → browser redirects
+ *      through Supabase → Google → Supabase → back here with ?code=
+ *   2. supabase.auth.detectSessionInUrl (configured in client.js) exchanges
+ *      the code for a session whose `provider_token` is the Google access token.
+ *   3. attachSessionToGapi() pushes provider_token into gapi.client so all
+ *      existing Gmail API calls in api.js keep working unchanged.
+ *   4. On 401, refreshGoogleAccessToken() asks Supabase to refresh the session,
+ *      which also refreshes provider_token via the stored Google refresh token.
  */
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+import { supabase } from '../supabase/client.js';
+
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest';
-const SCOPES = 'https://mail.google.com/';
+const GMAIL_SCOPE = 'https://mail.google.com/';
 
-let tokenClient = null;
 let gapiInited = false;
-let gisInited = false;
 
-/**
- * Load a script tag and return a promise that resolves when loaded.
- */
 function loadScript(src) {
   return new Promise((resolve, reject) => {
-    // Check if already loaded
     if (document.querySelector(`script[src="${src}"]`)) {
       resolve();
       return;
@@ -33,9 +36,6 @@ function loadScript(src) {
   });
 }
 
-/**
- * Wait for a global variable to be defined (handles async script loading).
- */
 function waitForGlobal(name, timeout = 10000) {
   return new Promise((resolve, reject) => {
     if (window[name]) {
@@ -56,86 +56,70 @@ function waitForGlobal(name, timeout = 10000) {
 }
 
 /**
- * Initialize both gapi.client and GIS. Call once on app startup.
- * Returns when both libraries are ready for use.
+ * Load gapi.client (no GIS — Supabase handles consent).
+ * Resolves when gapi.client.gmail is ready for use.
  */
 export async function initGoogleLibraries() {
-  // Load both scripts in parallel
-  await Promise.all([
-    loadScript('https://apis.google.com/js/api.js'),
-    loadScript('https://accounts.google.com/gsi/client'),
-  ]);
-
-  // Wait for globals to be available
-  await Promise.all([
-    waitForGlobal('gapi'),
-    waitForGlobal('google'),
-  ]);
-
-  // Initialize gapi.client
+  if (gapiInited) return;
+  await loadScript('https://apis.google.com/js/api.js');
+  await waitForGlobal('gapi');
   await new Promise((resolve) => gapi.load('client', resolve));
-  await gapi.client.init({
-    discoveryDocs: [DISCOVERY_DOC],
-  });
+  await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
   gapiInited = true;
-
-  // Initialize GIS token client
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: '', // Set per-request in requestAccessToken()
-  });
-  gisInited = true;
 }
 
 /**
- * Request an access token via GIS popup.
- * GIS automatically sets the token in gapi.client.
- * Returns a promise that resolves with the token response.
+ * If a Supabase session already exists with a provider_token, set it on
+ * gapi.client so Gmail calls work. Returns true if a token was attached.
  */
-export function requestAccessToken() {
-  return new Promise((resolve, reject) => {
-    if (!tokenClient) {
-      reject(new Error('Google libraries not initialized. Call initGoogleLibraries() first.'));
-      return;
-    }
-
-    tokenClient.callback = (tokenResponse) => {
-      if (tokenResponse.error !== undefined) {
-        reject(new Error(tokenResponse.error));
-        return;
-      }
-      // Token is automatically set in gapi.client by GIS
-      resolve(tokenResponse);
-    };
-
-    tokenClient.error_callback = (err) => {
-      reject(new Error(err.type || 'Authorization failed'));
-    };
-
-    // First time: show consent screen. Returning user: skip chooser.
-    if (gapi.client.getToken() === null) {
-      tokenClient.requestAccessToken({ prompt: 'consent' });
-    } else {
-      tokenClient.requestAccessToken({ prompt: '' });
-    }
-  });
+export async function attachSessionToGapi() {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.provider_token;
+  if (!token) {
+    gapi.client.setToken(null);
+    return false;
+  }
+  gapi.client.setToken({ access_token: token });
+  return true;
 }
 
 /**
- * Revoke the current access token and clear it from gapi.client.
+ * Kick off the OAuth flow. Browser navigates away; on return,
+ * detectSessionInUrl handles the code exchange.
  */
-export function revokeToken() {
-  return new Promise((resolve) => {
-    const token = gapi.client.getToken();
-    if (token !== null) {
-      google.accounts.oauth2.revoke(token.access_token, () => {
-        gapi.client.setToken(null);
-        resolve();
-      });
-    } else {
-      resolve();
-    }
+export async function signIn() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      scopes: GMAIL_SCOPE,
+      // access_type=offline + prompt=consent ensures we get a refresh_token
+      // even on returning sign-ins, so silent provider_token refresh works.
+      queryParams: { access_type: 'offline', prompt: 'consent' },
+      redirectTo: window.location.origin,
+    },
   });
+  if (error) throw error;
 }
 
+/**
+ * Refresh the Supabase session, which also refreshes provider_token using
+ * the stored Google refresh token. Pushes the new token into gapi.client.
+ * Used as the 401 recovery path in api.js.
+ */
+export async function refreshGoogleAccessToken() {
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error || !data.session?.provider_token) {
+    throw new Error('failed to refresh google access token');
+  }
+  gapi.client.setToken({ access_token: data.session.provider_token });
+}
+
+/**
+ * Sign out of Supabase and clear the gapi token.
+ */
+export async function signOut() {
+  await supabase.auth.signOut();
+  if (gapiInited && gapi.client.getToken()) {
+    gapi.client.setToken(null);
+  }
+}
