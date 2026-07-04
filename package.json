@@ -4,6 +4,9 @@
   "description": "Open-source Gmail inbox cleanup tool. Self-host for free, or use the hosted version at scrubinbox.com.",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.15"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/scrubinbox/scrubinbox.git"
