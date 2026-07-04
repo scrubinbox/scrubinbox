@@ -3,21 +3,35 @@ main = "worker/index.ts"
 compatibility_date = "2026-06-22"
 compatibility_flags = ["nodejs_compat"]
 
-# Workers + Assets: this Worker serves both the SPA (built into ./dist by Vite)
-# and the /api/* routes. `run_worker_first = true` invokes the Worker for every
-# request — it routes /api/* to Hono handlers and falls through to env.ASSETS
-# for everything else. SPA fallback (deep links → index.html) is configured in
-# the Worker via env.ASSETS.fetch, not here.
+# Workers + Assets: this Worker serves both the SPA (built into ./dist/client
+# by Vite via @cloudflare/vite-plugin) and the /api/* routes.
+# `run_worker_first = true` invokes the Worker for every request — it routes
+# /api/* to Hono handlers and falls through to env.ASSETS for everything else.
 [assets]
-directory = "./dist"
+directory = "./dist/client"
 binding = "ASSETS"
 run_worker_first = true
 
 # Local-dev secrets live in .dev.vars (gitignored).
 #
-# Required vars (set via `wrangler secret put` for staging/prod, in .dev.vars
-# for local):
+# Required per-env secrets (set via `wrangler secret put --env {staging,production}`;
+# in .dev.vars for local dev):
 #   SUPABASE_URL                public API URL of the linked Supabase project
 #   SUPABASE_ANON_KEY           public anon key; used for JWT verification path
 #   SUPABASE_SERVICE_ROLE_KEY   bypasses RLS — webhook handler only
 #   LEMONSQUEEZY_WEBHOOK_SECRET HMAC-SHA256 signing secret (Phase 5)
+
+# --- Environments ---
+#
+# Deploy targets: `wrangler deploy --env staging` and `--env production`.
+# Each becomes a separate Worker on Cloudflare — `scrubinbox-staging` gets the
+# auto-assigned `*.workers.dev` URL; `scrubinbox` (production) is fronted by
+# `app.scrubinbox.com` via a `cloudflare_workers_custom_domain` in scrubinbox-infra.
+#
+# Secrets are per-environment; use `wrangler secret put --env staging <NAME>`.
+
+[env.staging]
+name = "scrubinbox-staging"
+
+[env.production]
+name = "scrubinbox"
