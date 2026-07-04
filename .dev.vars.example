@@ -7,5 +7,12 @@ SUPABASE_URL = "https://jjbychixggcefuxznprp.supabase.co"
 SUPABASE_ANON_KEY = ""
 SUPABASE_SERVICE_ROLE_KEY = ""
 
-# Phase 5 — leave blank for now; webhook handler 501s without a secret.
-LEMONSQUEEZY_WEBHOOK_SECRET = ""
+# Stripe — get test-mode values from https://dashboard.stripe.com/test/apikeys
+# STRIPE_WEBHOOK_SECRET comes from Dashboard → Developers → Webhooks after
+# you register the endpoint URL (see worker/README.md for the sequence).
+STRIPE_SECRET_KEY = "sk_test_..."
+STRIPE_WEBHOOK_SECRET = "whsec_..."
+
+# Price ID for the ScrubInbox Lifetime (Early Adopter) product. Created via
+# the Stripe MCP plugin 2026-07-04 in the sandbox account.
+STRIPE_PRICE_ID = "price_1Tpc1gJteipepX6W5r9A1Y6s"

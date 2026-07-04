@@ -11,6 +11,10 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./dist/client"
 binding = "ASSETS"
 run_worker_first = true
+# SPA fallback: any path the assets binding doesn't know about (e.g. /welcome,
+# any client-side route) returns index.html so the Svelte app can inspect
+# window.location.pathname and render the right view.
+not_found_handling = "single-page-application"
 
 # Local-dev secrets live in .dev.vars (gitignored).
 #
@@ -18,8 +22,11 @@ run_worker_first = true
 # in .dev.vars for local dev):
 #   SUPABASE_URL                public API URL of the linked Supabase project
 #   SUPABASE_ANON_KEY           public anon key; used for JWT verification path
-#   SUPABASE_SERVICE_ROLE_KEY   bypasses RLS — webhook handler only
-#   LEMONSQUEEZY_WEBHOOK_SECRET HMAC-SHA256 signing secret (Phase 5)
+#   SUPABASE_SERVICE_ROLE_KEY   bypasses RLS — Stripe webhook handler only
+#   STRIPE_SECRET_KEY           test-mode `sk_test_...` or live-mode `sk_live_...`
+#   STRIPE_WEBHOOK_SECRET       `whsec_...` from the endpoint registration in the
+#                               Stripe dashboard (Developers → Webhooks)
+#   STRIPE_PRICE_ID             the Checkout `line_items[0].price` id
 
 # --- Environments ---
 #
