@@ -1,10 +1,16 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { isAuthenticated, userEmail, isPaid, entitlementLoaded } from '../stores/authStore.js';
+  import { collectionResult, domains } from '../stores/collectionStore.js';
+  import { selectedThreadIds, expandedDomains } from '../stores/cleanupStore.js';
+  import { showDomains } from '../stores/uiStore.js';
   import { supabase } from '../supabase/client.js';
   import { getMe } from '../supabase/api.js';
   import { initGoogleLibraries, attachSessionToGapi, signIn, signOut } from '../gmail/auth.js';
   import { getErrorMessage } from '../errors.js';
+  import { loadScanState, clearScanState } from '../persistScan.js';
+
+  let restoredForUserId = null;
 
   let authReady = false;
   let authBtnDisabled = false;
@@ -24,12 +30,34 @@
     }
   }
 
+  // Persisted scan snapshots (sessionStorage) survive the Stripe round-trip
+  // and page reloads. Only restore once we've confirmed which user is signed
+  // in and it matches — otherwise the previous user's tab could show
+  // someone else's scan results after they sign out and back in.
+  function maybeRestoreScan(userId) {
+    if (!userId || restoredForUserId === userId) return;
+    const saved = loadScanState();
+    if (!saved) return;
+    if (saved.userId !== userId) {
+      clearScanState();
+      return;
+    }
+    $collectionResult = saved.collectionResult;
+    $domains = saved.domains;
+    $selectedThreadIds = saved.selectedThreadIds;
+    $expandedDomains = saved.expandedDomains;
+    showDomains();
+    restoredForUserId = userId;
+  }
+
   async function syncFromSession(session) {
     if (!session) {
       $isAuthenticated = false;
       $userEmail = '';
       $isPaid = false;
       $entitlementLoaded = false;
+      restoredForUserId = null;
+      clearScanState();
       return;
     }
     const attached = await attachSessionToGapi();
@@ -37,6 +65,7 @@
     $userEmail = session.user?.email ?? '';
     if (attached) {
       await refreshEntitlement();
+      maybeRestoreScan(session.user?.id);
     }
   }
 

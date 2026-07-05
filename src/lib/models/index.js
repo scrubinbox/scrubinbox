@@ -246,4 +246,40 @@ export class CollectionResult {
     }
     return threads;
   }
+
+  /**
+   * Serialise the result to a plain object suitable for JSON.stringify.
+   * Thread instances become {threadId, _raw} so fromJSON can rebuild them —
+   * class methods obviously don't survive JSON.
+   */
+  toJSON() {
+    const threadsById = {};
+    for (const [id, thread] of Object.entries(this.threadsById)) {
+      threadsById[id] = { threadId: thread.threadId, raw: thread._raw };
+    }
+    return {
+      domainResults: this.domainResults,
+      threadsById,
+      threadsByDomain: this.threadsByDomain,
+    };
+  }
+
+  /**
+   * Reconstruct a CollectionResult from data produced by toJSON().
+   */
+  static fromJSON(data) {
+    const threadsById = {};
+    for (const [id, obj] of Object.entries(data.threadsById)) {
+      threadsById[id] = new Thread(obj.threadId, obj.raw);
+    }
+    const domainResults = {};
+    for (const [domain, obj] of Object.entries(data.domainResults)) {
+      domainResults[domain] = new DomainResult({
+        domain: obj.domain,
+        count: obj.count,
+        threads: obj.threads.map((t) => new CleanupThread(t)),
+      });
+    }
+    return new CollectionResult(domainResults, threadsById, data.threadsByDomain);
+  }
 }
