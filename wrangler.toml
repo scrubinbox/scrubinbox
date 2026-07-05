@@ -21,8 +21,13 @@ not_found_handling = "single-page-application"
 # Required per-env secrets (set via `wrangler secret put --env {staging,production}`;
 # in .dev.vars for local dev):
 #   SUPABASE_URL                public API URL of the linked Supabase project
-#   SUPABASE_ANON_KEY           public anon key; used for JWT verification path
-#   SUPABASE_SERVICE_ROLE_KEY   bypasses RLS — Stripe webhook handler only
+#   SUPABASE_PUBLISHABLE_KEY    public key (formerly "anon"); used for JWT
+#                               verification path. Supabase migrated to the
+#                               `sb_publishable_...` format; legacy `eyJ...`
+#                               anon JWTs still work but are being deprecated
+#   SUPABASE_SECRET_KEY         admin key (formerly "service_role"); bypasses
+#                               RLS — Stripe webhook handler only. New-format
+#                               value is `sb_secret_...`
 #   STRIPE_SECRET_KEY           test-mode `sk_test_...` or live-mode `sk_live_...`
 #   STRIPE_WEBHOOK_SECRET       `whsec_...` from the endpoint registration in the
 #                               Stripe dashboard (Developers → Webhooks)

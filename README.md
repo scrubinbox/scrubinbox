@@ -81,7 +81,7 @@ Client-side filtering against the actual `labelIds` returned by `threads.get` is
 
 ```bash
 cp .env.example .env
-# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
 
 cp .dev.vars.example .dev.vars 2>/dev/null || echo "See .dev.vars section below"
 # Set the Worker-side secrets for local dev — see below
@@ -96,8 +96,8 @@ The Worker reads its secrets from `.dev.vars` (gitignored). Minimum for the app 
 
 ```
 SUPABASE_URL=<same as VITE_SUPABASE_URL>
-SUPABASE_ANON_KEY=<same as VITE_SUPABASE_ANON_KEY>
-SUPABASE_SERVICE_ROLE_KEY=<from Supabase dashboard>
+SUPABASE_PUBLISHABLE_KEY=<same as VITE_SUPABASE_PUBLISHABLE_KEY — `sb_publishable_...`>
+SUPABASE_SECRET_KEY=<from Supabase dashboard — `sb_secret_...`>
 ```
 
 For payment testing, also set:

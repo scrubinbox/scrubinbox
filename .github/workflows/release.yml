@@ -74,7 +74,7 @@ jobs:
         # (declared on the job above) — same plain names as staging.
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_APP_VERSION: ${{ steps.version.outputs.value }}
         run: npm run build
 
