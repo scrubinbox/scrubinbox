@@ -1,0 +1,96 @@
+name: Release
+
+# Production deploy path. Triggered by pushing a SemVer tag (`v1.2.3`).
+# `workflow_dispatch` is the emergency-override manual button — pick any ref
+# from the GitHub UI and it runs the same steps.
+#
+# The production Worker (`scrubinbox`) doesn't exist yet — until scrubinbox-infra#7
+# creates it and points app.scrubinbox.com at it, this workflow will fail on the
+# deploy step. That's expected: this file scaffolds the release path so the
+# first `v1.0.0` tag at launch just works.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+# Queue production releases; never cancel one mid-flight.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release → production
+    runs-on: ubuntu-latest
+
+    # `production` environment must exist in repo settings with required
+    # reviewers configured. Every run pauses here until a reviewer approves,
+    # which is our human gate before real users see the new code.
+    environment:
+      name: production
+      url: https://app.scrubinbox.com
+
+    permissions:
+      # Needed by `gh release create` — writes the GitHub Release record.
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gh release notes want the full history to diff against the last tag.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck worker
+        run: npm run typecheck:worker
+
+      - name: Run tests
+        run: npm test
+
+      - name: Resolve version
+        id: version
+        # For tag pushes github.ref_name is e.g. `v1.2.3`. For manual dispatch
+        # it's the branch name — fall back to the short SHA so the footer still
+        # tells us which build we're looking at.
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=manual-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build (production)
+        # Secrets below resolve to the `production` GitHub Environment
+        # (declared on the job above) — same plain names as staging.
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_VERSION: ${{ steps.version.outputs.value }}
+        run: npm run build
+
+      - name: Deploy Worker (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy -c wrangler.toml --env production
+
+      - name: Create GitHub Release
+        # Only fire on real tag pushes — manual dispatch runs skip this.
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes

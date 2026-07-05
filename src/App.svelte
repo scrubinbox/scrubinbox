@@ -11,6 +11,11 @@
   import WelcomeView from './lib/components/WelcomeView.svelte';
   import { view, showWelcome } from './lib/stores/uiStore.js';
 
+  // Version stamp shown in the footer. CI injects the tag (e.g. `v1.2.3`) for
+  // production builds and `staging-<sha>` for staging builds; local dev has
+  // no value set, so it renders as `dev`.
+  const appVersion = import.meta.env.VITE_APP_VERSION || 'dev';
+
   // No router — we conditionally render based on window.location.pathname
   // (set once when the SPA boots) and the `view` store thereafter. The Worker
   // serves index.html for any non-/api path, so /welcome loads this app.
@@ -41,7 +46,7 @@
   </div>
   <footer class="border-t border-sage-200 py-4 px-4">
     <div class="container mx-auto max-w-4xl flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-sage-400">
-      <span>&copy; 2026 ScrubInbox</span>
+      <span>&copy; 2026 ScrubInbox <span class="text-sage-300">·</span> <span class="font-mono">{appVersion}</span></span>
       <div class="flex flex-wrap justify-center gap-4">
         <a href="https://scrubinbox.com/privacy.html" class="hover:text-sage-600 transition-colors">Privacy Policy</a>
         <a href="https://github.com/scrubinbox/scrubinbox/issues/new?labels=bug&template=bug_report.md" class="hover:text-sage-600 transition-colors">Report a Bug</a>

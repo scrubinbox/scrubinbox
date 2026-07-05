@@ -60,5 +60,5 @@ coverage/
 # Personal/operational notes that must not be published.
 productization.md
 
-# Claude Code local settings
-.claude/settings.local.json
+# Claude Code local state (settings, memory, subagents, plans)
+.claude/
