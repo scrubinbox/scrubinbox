@@ -70,9 +70,11 @@ jobs:
           fi
 
       - name: Build (production)
+        # Secrets below resolve to the `production` GitHub Environment
+        # (declared on the job above) — same plain names as staging.
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_PRODUCTION }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY_PRODUCTION }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_VERSION: ${{ steps.version.outputs.value }}
         run: npm run build
 

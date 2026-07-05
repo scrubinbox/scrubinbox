@@ -57,8 +57,16 @@ jobs:
     name: Deploy → staging
     needs: test
     # Only deploy when the push landed on main. PRs stop at `test`.
+    # Also skips PRs from forks, which can't access environment secrets anyway.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+
+    # Scopes the secrets below (CLOUDFLARE_*, VITE_SUPABASE_*) to the
+    # `staging` GitHub Environment. Same plain names as production — the
+    # environment binding is what selects the right values.
+    environment:
+      name: staging
+      url: https://scrubinbox-staging.brian-e60.workers.dev
 
     steps:
       - uses: actions/checkout@v4
@@ -75,8 +83,8 @@ jobs:
 
       - name: Build (staging)
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_STAGING }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY_STAGING }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           # Version stamp: first 7 chars of the commit SHA, so the app footer
           # in staging shows which build is live.
           VITE_APP_VERSION: staging-${{ github.sha }}
