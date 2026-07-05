@@ -1,13 +1,24 @@
 name: CI
 
+# CI runs on every PR and every push to main.
+# On push to main we additionally deploy to the staging Worker
+# (scrubinbox-staging.<account>.workers.dev).
+# Production deploys live in release.yml and are triggered by SemVer tags.
+
 on:
   push:
-    branches: [main, staging]
+    branches: [main]
   pull_request:
     branches: [main]
 
+# Only one staging deploy from main at a time. Newer commits cancel an
+# in-flight run so we don't ship an older bundle over a newer one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test-and-build:
+  test:
     name: Test & Build
     runs-on: ubuntu-latest
 
@@ -27,10 +38,55 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Typecheck worker
+        run: npm run typecheck:worker
+
       - name: Run tests
         run: npm test
 
-      - name: Build
+      - name: Build (CI check)
+        # PRs and non-deploy runs only need to prove the build succeeds.
+        # VITE_ vars can be dummies here — the build inlines them, but the
+        # bundle is thrown away. Real values are injected on the deploy job.
         env:
-          VITE_GOOGLE_CLIENT_ID: "test-client-id"
+          VITE_SUPABASE_URL: "https://ci-placeholder.supabase.co"
+          VITE_SUPABASE_ANON_KEY: "ci-placeholder"
         run: npm run build
+
+  deploy-staging:
+    name: Deploy → staging
+    needs: test
+    # Only deploy when the push landed on main. PRs stop at `test`.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (staging)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL_STAGING }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY_STAGING }}
+          # Version stamp: first 7 chars of the commit SHA, so the app footer
+          # in staging shows which build is live.
+          VITE_APP_VERSION: staging-${{ github.sha }}
+        run: npm run build
+
+      - name: Deploy Worker (staging)
+        # -c wrangler.toml pins the root config; without it @cloudflare/vite-plugin
+        # would redirect wrangler to dist/scrubinbox/wrangler.json which flattens
+        # the [env.*] blocks and would deploy to the wrong Worker name.
+        run: npx wrangler deploy -c wrangler.toml --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
