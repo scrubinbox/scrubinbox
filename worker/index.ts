@@ -135,6 +135,11 @@ api.post('/create-checkout-session', requireAuth, async (c) => {
     success_url: `${origin}/welcome?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/`,
     customer_email: c.var.user.email ?? undefined,
+    // Force customer creation so the webhook always receives a customer id.
+    // Default 'if_required' skips customer creation for one-time payments,
+    // which surfaced as a NOT-NULL violation on the entitlements insert until
+    // migration 20260704232014 dropped that constraint.
+    customer_creation: 'always',
     metadata: { user_id: c.var.user.id },
     // Automatic tax handled by Managed Payments — we don't set tax settings here.
   })
