@@ -48,9 +48,10 @@
     <div class="container mx-auto max-w-4xl flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-sage-400">
       <span>&copy; 2026 ScrubInbox <span class="text-sage-300">·</span> <span class="font-mono">{appVersion}</span></span>
       <div class="flex flex-wrap justify-center gap-4">
-        <a href="https://scrubinbox.com/privacy.html" class="hover:text-sage-600 transition-colors">Privacy Policy</a>
+        <a href="https://scrubinbox.com/privacy.html" class="hover:text-sage-600 transition-colors">Privacy</a>
+        <a href="https://scrubinbox.com/terms.html" class="hover:text-sage-600 transition-colors">Terms</a>
+        <a href="https://scrubinbox.com/refund-policy.html" class="hover:text-sage-600 transition-colors">Refunds</a>
         <a href="https://github.com/scrubinbox/scrubinbox/issues/new?labels=bug&template=bug_report.md" class="hover:text-sage-600 transition-colors">Report a Bug</a>
-        <a href="https://github.com/scrubinbox/scrubinbox/issues/new?labels=enhancement&template=feature_request.md" class="hover:text-sage-600 transition-colors">Feature Request</a>
       </div>
     </div>
   </footer>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service — ScrubInbox</title>
+  <meta name="description" content="ScrubInbox terms of service — the agreement between you and ScrubInbox when you use the hosted app.">
+  <link rel="icon" type="image/svg+xml" href="/favicon/scrubinbox-icon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --sage: #7A9E7E;
+      --sage-dark: #5C7F63;
+      --sage-deeper: #3D5C42;
+      --sage-light: #E8F0E9;
+      --ink: #2C3E2F;
+      --ink-light: #4A6B4F;
+      --paper: #FAFCFA;
+      --muted: #7A8A7C;
+      --rule: #D4DFD6;
+    }
+
+    html { font-size: 17px; }
+
+    body {
+      font-family: 'Instrument Sans', -apple-system, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(250, 252, 250, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .nav-inner {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .logo img {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+    }
+
+    .logo-text {
+      font-weight: 600;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.75rem;
+    }
+
+    .nav-links a {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--ink); }
+
+    .content {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 3rem 2rem 5rem;
+    }
+
+    .content h1 {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .last-updated {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+    }
+
+    .content h2 {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin-top: 2.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .content p, .content li {
+      font-size: 0.95rem;
+      line-height: 1.75;
+      color: var(--ink-light);
+      margin-bottom: 1rem;
+    }
+
+    .content ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .content ul li {
+      padding-left: 1.5rem;
+      position: relative;
+      margin-bottom: 0.5rem;
+    }
+
+    .content ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.6rem;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--sage);
+    }
+
+    .content a {
+      color: var(--sage-dark);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .content a:hover { color: var(--sage-deeper); }
+
+    .callout {
+      background: var(--sage-light);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+      line-height: 1.65;
+      color: var(--ink-light);
+    }
+
+    footer {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      border-top: 1px solid var(--rule);
+    }
+
+    footer a {
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    footer a:hover { color: var(--ink); }
+
+    @media (max-width: 768px) {
+      .content { padding: 2rem 1.5rem 4rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <img src="/favicon/scrubinbox-icon.svg" alt="ScrubInbox">
+        <span class="logo-text">ScrubInbox</span>
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="https://github.com/scrubinbox/scrubinbox">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <h1>Terms of Service</h1>
+    <p class="last-updated">Last updated: July 5, 2026</p>
+
+    <p>These Terms of Service ("Terms") govern your use of the hosted ScrubInbox application at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a> and the marketing site at <a href="https://scrubinbox.com">scrubinbox.com</a> (together, the "Service"). By using the Service you agree to these Terms.</p>
+
+    <p>ScrubInbox is operated by Dawn House Studio LLC ("ScrubInbox", "we", "us"). If you self-host the open source code, these Terms do not apply — the MIT License in the repository is the only agreement between us in that case.</p>
+
+    <div class="callout">
+      <strong>Plain-English summary:</strong> You use ScrubInbox to clean up your own Gmail inbox. You pay us once for a lifetime license to the hosted app. We charge and refund through Stripe. You can ask us to delete your account at any time. We don't make guarantees about uptime or that ScrubInbox will fit any particular purpose — use preview mode, review selections, and if something goes wrong, email us.
+    </div>
+
+    <h2>1. Who can use ScrubInbox</h2>
+    <p>You must be at least 13 years old and have a Google account with Gmail access to use the Service. If you are between 13 and the age of majority in your jurisdiction, a parent or guardian must review and accept these Terms on your behalf.</p>
+
+    <h2>2. What the Service does</h2>
+    <p>ScrubInbox lets you sign in with Google, scan your Gmail inbox, group threads by sender domain, and move selected threads to trash in bulk. Detailed feature description and privacy handling are documented in our <a href="/privacy.html">Privacy Policy</a>.</p>
+
+    <h2>3. Your account</h2>
+    <p>You sign in with your Google account. We create an internal account for you (identified by a Supabase-generated user ID and your Google email address) when you first sign in. You are responsible for keeping control of your Google account. You may not share your account or your paid entitlement with anyone else.</p>
+
+    <h2>4. License to use the Service</h2>
+    <p>Subject to these Terms and payment of any applicable fees, we grant you a personal, non-exclusive, non-transferable, revocable license to use the Service. Your license is tied to your account and cannot be sold, sublicensed, or assigned.</p>
+
+    <h2>5. Pricing and payment</h2>
+    <p>ScrubInbox is currently offered as a one-time payment of <strong>$4.99 USD for a lifetime license</strong> to the hosted app (the "early-adopter" pricing). If we introduce a subscription model in the future, customers on lifetime plans will be grandfathered in at no additional cost.</p>
+    <p>Payments are processed by Stripe, Inc. through Stripe Managed Payments. Stripe is the <strong>Merchant of Record</strong> for your purchase — this means Stripe (not ScrubInbox) collects the payment, handles taxes, and appears on your card statement. Your card details are entered directly into Stripe's hosted checkout and are never received or stored by ScrubInbox.</p>
+    <p>See our <a href="/refund-policy.html">Refund Policy</a> for how to request a refund.</p>
+
+    <h2>6. Acceptable use</h2>
+    <p>You agree not to:</p>
+    <ul>
+      <li>Use the Service to access, modify, or trash email you are not authorized to access</li>
+      <li>Attempt to circumvent the paywall, share entitlements between accounts, or use payment methods you are not authorized to use</li>
+      <li>Reverse engineer or attempt to extract source code from the hosted Service (the open source code is separately available under the MIT License — see below)</li>
+      <li>Use the Service in a way that violates Google's <a href="https://developers.google.com/terms">Terms of Service</a> or the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a></li>
+      <li>Interfere with, disrupt, or place unreasonable load on the Service</li>
+      <li>Use the Service for any unlawful purpose or in violation of any applicable law</li>
+    </ul>
+
+    <h2>7. Open source code</h2>
+    <p>The ScrubInbox source code is published under the <a href="https://github.com/scrubinbox/scrubinbox/blob/main/LICENSE">MIT License</a> at <a href="https://github.com/scrubinbox/scrubinbox">github.com/scrubinbox/scrubinbox</a>. Under the MIT License you may run, copy, modify, and redistribute the code for any purpose, including running your own instance. These Terms cover the hosted Service only.</p>
+
+    <h2>8. Third-party services</h2>
+    <p>The Service relies on Google (Gmail API and sign-in), Supabase (authentication and database), Stripe (payments), and Cloudflare (hosting). Your use of these services is subject to their own terms and privacy policies, which are linked in our <a href="/privacy.html">Privacy Policy</a>.</p>
+
+    <h2>9. Intellectual property</h2>
+    <p>The ScrubInbox name, logo, and marketing site content are our property. The source code is licensed under MIT. Your Gmail data belongs to you.</p>
+
+    <h2>10. Disclaimers</h2>
+    <p>The Service is provided <strong>"AS IS" and "AS AVAILABLE" without warranties of any kind</strong>, express or implied, including any implied warranty of merchantability, fitness for a particular purpose, or non-infringement.</p>
+    <p>ScrubInbox modifies your Gmail inbox by moving threads to trash. Always use preview mode first and carefully review your selections before running the trash operation. We are not responsible for emails you trashed by mistake — trashed emails remain recoverable from Gmail's Trash folder for 30 days per Gmail's standard behavior.</p>
+    <p>We do not guarantee that the Service will be available at any particular time or free from errors, interruptions, or data loss.</p>
+
+    <h2>11. Limitation of liability</h2>
+    <p>To the fullest extent permitted by law, ScrubInbox and Dawn House Studio LLC will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for lost profits, data loss, or business interruption arising out of or related to your use of the Service.</p>
+    <p>Our total liability to you for any claim arising out of or related to these Terms or the Service is limited to the amount you paid us for the Service in the twelve (12) months before the claim, or fifty US dollars ($50), whichever is greater.</p>
+    <p>Some jurisdictions do not allow the exclusion or limitation of certain damages; in those jurisdictions our liability will be limited to the maximum extent permitted by law.</p>
+
+    <h2>12. Termination</h2>
+    <p>You can stop using the Service at any time by signing out. You can also request account deletion by emailing <a href="mailto:support@scrubinbox.com">support@scrubinbox.com</a> — see the <a href="/privacy.html">Privacy Policy</a> for the deletion process.</p>
+    <p>We may suspend or terminate your access if you materially violate these Terms or if we are required to do so by law. If we terminate your access for a reason other than a material Terms violation, we will refund the pro-rata portion of any fees paid — for a lifetime license, this means the full purchase price if we terminate the Service in its entirety.</p>
+
+    <h2>13. Changes to these Terms</h2>
+    <p>We may update these Terms from time to time. If we make material changes, we will update the "Last updated" date above and, where we hold your email address, notify you at that address at least 14 days before the changes take effect. Continued use of the Service after the effective date constitutes acceptance of the updated Terms.</p>
+
+    <h2>14. Governing law and disputes</h2>
+    <p>These Terms are governed by the laws of the State of California, United States, without regard to conflict-of-laws principles. Any dispute arising out of or related to these Terms or the Service will be resolved exclusively in the state or federal courts located in Los Angeles County, California, and you consent to the personal jurisdiction of those courts.</p>
+    <p>If you are a consumer resident in the EU, EEA, or UK, this section does not override mandatory consumer protection laws of your country of residence.</p>
+
+    <h2>15. Contact</h2>
+    <p>For any question about these Terms, email <a href="mailto:support@scrubinbox.com">support@scrubinbox.com</a>.</p>
+  </main>
+
+  <footer>
+    <span>&copy; 2026 ScrubInbox</span>
+    <a href="https://github.com/scrubinbox/scrubinbox">MIT License</a>
+  </footer>
+
+</body>
+</html>

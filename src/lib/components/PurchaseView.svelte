@@ -72,6 +72,14 @@
       {/if}
     </button>
 
+    <p class="text-[11px] text-sage-400 mt-3 leading-relaxed">
+      By purchasing, you agree to our
+      <a href="https://scrubinbox.com/terms.html" class="underline hover:text-sage-600">Terms of Service</a>,
+      <a href="https://scrubinbox.com/refund-policy.html" class="underline hover:text-sage-600">Refund Policy</a>, and
+      <a href="https://scrubinbox.com/privacy.html" class="underline hover:text-sage-600">Privacy Policy</a>.
+      Payments are processed by Stripe as Merchant of Record.
+    </p>
+
     {#if error}
       <p class="text-xs text-red-500 mt-3 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
         {error}

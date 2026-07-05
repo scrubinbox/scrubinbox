@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy — ScrubInbox</title>
-  <meta name="description" content="ScrubInbox privacy policy. Your email data never leaves your browser.">
+  <meta name="description" content="ScrubInbox privacy policy. Email content stays in your browser; account and purchase data is stored with named sub-processors.">
   <link rel="icon" type="image/svg+xml" href="/favicon/scrubinbox-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
@@ -206,45 +206,44 @@
 
   <main class="content">
     <h1>Privacy Policy</h1>
-    <p class="last-updated">Last updated: April 1, 2026</p>
+    <p class="last-updated">Last updated: July 5, 2026</p>
 
-    <p>ScrubInbox is a free, open source Gmail inbox cleanup tool. This policy describes how ScrubInbox handles your data when you use the app at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a>.</p>
+    <p>This policy describes how ScrubInbox handles your data when you use the hosted app at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a>. The self-hosted, open source version of ScrubInbox is not covered by this policy — self-hosters are their own data controller.</p>
 
     <div class="callout">
-      <strong>The short version:</strong> ScrubInbox runs entirely in your browser. Your email data is never sent to any server, never stored anywhere, and never shared with anyone. There is no backend.
+      <strong>The short version:</strong> The content of your emails never leaves your browser. To run the paid hosted service we do store a small amount of account and purchase data (your email address, your entitlement, and a running count of how many threads you've scanned and trashed) with two named sub-processors: <strong>Supabase</strong> (authentication and database) and <strong>Stripe</strong> (payments). Subject lines, sender information, and thread bodies are never transmitted to our servers.
     </div>
 
-    <h2>What data ScrubInbox accesses</h2>
+    <h2>What data ScrubInbox accesses from Google</h2>
     <p>When you sign in with Google and grant access, ScrubInbox uses the Gmail API to access:</p>
     <ul>
-      <li>Your email address (to display who is signed in)</li>
+      <li>Your email address (to display who is signed in and to link your entitlement to your account)</li>
       <li>Thread metadata: sender name, sender email address, subject line, and label IDs</li>
       <li>Label names (to power the label exclusion filter)</li>
       <li>Inbox thread count (to display scan progress)</li>
     </ul>
     <p>ScrubInbox does <strong>not</strong> access the body or content of your emails. It only requests thread metadata (headers and labels).</p>
 
-    <h2>How your data is used</h2>
-    <p>Your Gmail data is used solely to provide the features you see in the app:</p>
+    <h2>What we store on our servers</h2>
+    <p>To operate the hosted service we store the following, and only the following, on our backend (Supabase — see sub-processors below):</p>
     <ul>
-      <li>Listing and grouping inbox threads by sender domain</li>
-      <li>Displaying sender names, email counts, and sample subject lines</li>
-      <li>Filtering out starred and labeled threads</li>
-      <li>Moving selected threads to trash when you choose to clean up</li>
+      <li>Your Google email address and a Supabase-generated user ID (from the sign-in flow)</li>
+      <li>Your entitlement record: purchase type (currently only <em>lifetime</em>), whether you were an early adopter, and the Stripe checkout session ID and Stripe customer ID that produced it</li>
+      <li>Scan logs: for each cleanup session, only the number of threads scanned and the number of threads trashed — no sender addresses, no subject lines, no thread IDs</li>
     </ul>
-    <p>All processing happens in your browser's memory. Data is never used for any other purpose.</p>
+    <p>We do <strong>not</strong> store: email content, subject lines, sender names or addresses, thread IDs, label names, or any Gmail metadata beyond the aggregate counts above.</p>
 
-    <h2>Data storage</h2>
-    <p>ScrubInbox does not store your email data. There is no database, no server, no local storage, and no cookies used to persist your Gmail data. When you close or refresh the browser tab, all email data is gone.</p>
-    <p>Your OAuth access token is held in browser memory only. It expires after approximately one hour and is never written to disk or transmitted to any server.</p>
+    <h2>What stays in your browser</h2>
+    <p>Everything about the emails themselves — sender addresses, subject lines, thread IDs, the domain-grouped scan results, the trashing operation — happens in your browser's memory. To make the paywall round-trip feel less jarring, scan results are temporarily saved to your browser's <code>sessionStorage</code> so they survive the redirect to Stripe and back. <code>sessionStorage</code> is scoped to the browser tab and clears when the tab closes. It is not transmitted anywhere.</p>
+    <p>Your Google OAuth access token is held in browser memory and refreshed by Supabase's auth client as needed. The token itself is not written to disk beyond the standard Supabase session storage (browser <code>localStorage</code>), and it is never sent to any ScrubInbox-controlled endpoint — Gmail API calls go directly from your browser to Google.</p>
 
-    <h2>Data sharing</h2>
-    <p>ScrubInbox does not share your data with anyone. Specifically:</p>
+    <h2>Sub-processors</h2>
+    <p>To operate the hosted service we rely on the following third-party sub-processors. Each is contractually obligated to handle your data only for the purposes described here.</p>
     <ul>
-      <li>No data is sent to any ScrubInbox server (there is no server)</li>
-      <li>No data is sent to third parties</li>
-      <li>No data is used for advertising, analytics, or tracking</li>
-      <li>No data is sold, rented, or transferred to any other entity</li>
+      <li><strong>Supabase, Inc.</strong> (United States) — hosts our authentication and Postgres database. Stores: your Supabase user ID, your Google email address, your entitlement row, your scan-log counts. <a href="https://supabase.com/privacy">Supabase Privacy Policy</a>.</li>
+      <li><strong>Stripe, Inc.</strong> (United States) — processes payments as our Merchant of Record via Stripe Managed Payments. Stripe collects and stores your payment method, billing address, and any information you enter during checkout. ScrubInbox never sees your card number. <a href="https://stripe.com/privacy">Stripe Privacy Policy</a>.</li>
+      <li><strong>Cloudflare, Inc.</strong> (United States) — hosts the app and serves the Worker that mediates API requests. Cloudflare may log request metadata (IP address, user agent, request path) for DDoS mitigation and performance monitoring. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a>.</li>
+      <li><strong>Google LLC</strong> (United States) — provides Gmail access via OAuth. Handles the sign-in flow and every Gmail API call. <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.</li>
     </ul>
 
     <h2>Google API Services Limited Use Disclosure</h2>
@@ -257,25 +256,43 @@
       <li>No human reads your Google user data, unless you have given affirmative consent, it is necessary for security or legal compliance, or the data is aggregated and anonymized for internal operations</li>
     </ul>
 
-    <h2>Third-party services</h2>
-    <p>ScrubInbox loads two external scripts from Google:</p>
+    <h2>Cookies and browser storage</h2>
+    <p>ScrubInbox uses:</p>
     <ul>
-      <li><strong>Google Identity Services</strong> (<code>accounts.google.com/gsi/client</code>) &mdash; handles the OAuth sign-in flow</li>
-      <li><strong>Google API client library</strong> (<code>apis.google.com/js/api.js</code>) &mdash; communicates with the Gmail API</li>
+      <li><strong><code>localStorage</code></strong> — Supabase's auth client stores your session token here so you stay signed in across page reloads. Cleared on sign-out.</li>
+      <li><strong><code>sessionStorage</code></strong> — Scan results are cached here so they survive the redirect to Stripe checkout and back. Cleared when the tab closes.</li>
     </ul>
-    <p>All Gmail API calls go directly from your browser to Google's servers. ScrubInbox has no backend that proxies or intercepts these requests.</p>
+    <p>ScrubInbox does not set analytics or advertising cookies.</p>
 
-    <h2>Open source</h2>
-    <p>ScrubInbox is fully open source under the MIT license. You can inspect every line of code that runs in your browser at <a href="https://github.com/scrubinbox/scrubinbox">github.com/scrubinbox/scrubinbox</a>.</p>
+    <h2>Data retention</h2>
+    <p>We retain your account, entitlement record, and scan-log counts for as long as your account exists. If you request deletion (see below), we will delete these records within 30 days of the request. Stripe retains payment records independently under its own retention policies; see the Stripe Privacy Policy linked above.</p>
+
+    <h2>Your rights</h2>
+    <p>Regardless of where you live, you can email <a href="mailto:support@scrubinbox.com">support@scrubinbox.com</a> to request:</p>
+    <ul>
+      <li>A copy of the data we hold about you</li>
+      <li>Correction of any inaccurate account data</li>
+      <li>Deletion of your account and all associated data (entitlement + scan logs)</li>
+    </ul>
+    <p>We will respond to verifiable requests within 30 days. If you are in the EU, EEA, UK, or California, applicable regulations (GDPR, UK GDPR, CCPA) give you the same rights and we honor them for all users regardless of location.</p>
+
+    <h2>International data transfers</h2>
+    <p>Our sub-processors are US-based and process data in the United States. If you are outside the US, using ScrubInbox involves transferring your data to the US. The sub-processors listed above rely on Standard Contractual Clauses or equivalent mechanisms for these transfers where required.</p>
+
+    <h2>Security</h2>
+    <p>Communications between your browser and our Worker, and between our Worker and Supabase, are encrypted with TLS. Supabase's Row-Level Security ensures that account and entitlement data can only be read by the authenticated user it belongs to. Payment card data is handled by Stripe and never reaches our servers.</p>
 
     <h2>Children's privacy</h2>
-    <p>ScrubInbox is not directed at children under 13. We do not knowingly collect data from children.</p>
+    <p>ScrubInbox is not directed at children under 13, and we do not knowingly collect data from children. If you believe a child has provided data to ScrubInbox, please email <a href="mailto:support@scrubinbox.com">support@scrubinbox.com</a> and we will delete it.</p>
+
+    <h2>Open source</h2>
+    <p>ScrubInbox is fully open source under the MIT license. You can inspect every line of code at <a href="https://github.com/scrubinbox/scrubinbox">github.com/scrubinbox/scrubinbox</a>. The self-hosted version does not require any of the sub-processors listed above.</p>
 
     <h2>Changes to this policy</h2>
-    <p>If this policy is updated, the "Last updated" date at the top will be revised. Since ScrubInbox has no user accounts or contact information, we cannot notify users directly. We encourage you to review this page periodically.</p>
+    <p>If this policy changes materially, we will update the "Last updated" date above and, where we hold your email address, notify you at that address before the changes take effect.</p>
 
     <h2>Contact</h2>
-    <p>If you have questions about this privacy policy, please open an issue on <a href="https://github.com/scrubinbox/scrubinbox/issues">GitHub</a>.</p>
+    <p>For any question or request related to this policy, email <a href="mailto:support@scrubinbox.com">support@scrubinbox.com</a>.</p>
   </main>
 
   <footer>
