@@ -17,11 +17,11 @@ touches the backend — only identity, entitlement, and scan logs.
 
 ```bash
 # From repo root:
-cp .env.example .env                # frontend env (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY)
-cp .dev.vars.example .dev.vars      # worker env (SUPABASE_URL + anon + service-role keys)
+cp .env.example .env    # single file — VITE_ vars for the SPA build +
+                        # SUPABASE_* / STRIPE_* vars for the Worker runtime.
 
 # Fill in the values from the staging Supabase dashboard
-# (Project Settings → API).
+# (Project Settings → API) and Stripe test-mode dashboard.
 
 npm install
 npm run dev          # one terminal — Vite + Worker in a single process via

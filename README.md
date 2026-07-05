@@ -81,34 +81,14 @@ Client-side filtering against the actual `labelIds` returned by `threads.get` is
 
 ```bash
 cp .env.example .env
-# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
-
-cp .dev.vars.example .dev.vars 2>/dev/null || echo "See .dev.vars section below"
-# Set the Worker-side secrets for local dev — see below
+# Fill in the values — .env.example has annotated slots for both the
+# Vite-facing VITE_* vars and the Worker-facing SUPABASE_* / STRIPE_* vars.
 
 npm install
 npm run dev
 ```
 
-`npm run dev` starts Vite with `@cloudflare/vite-plugin` embedded, so a real workerd Worker serves `/api/*` and Vite serves the SPA on the same port (no proxy).
-
-The Worker reads its secrets from `.dev.vars` (gitignored). Minimum for the app to boot:
-
-```
-SUPABASE_URL=<same as VITE_SUPABASE_URL>
-SUPABASE_PUBLISHABLE_KEY=<same as VITE_SUPABASE_PUBLISHABLE_KEY — `sb_publishable_...`>
-SUPABASE_SECRET_KEY=<from Supabase dashboard — `sb_secret_...`>
-```
-
-For payment testing, also set:
-
-```
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_ID=price_...
-```
-
-Stripe test-mode is fine for local development.
+`npm run dev` starts Vite with `@cloudflare/vite-plugin` embedded, so a real workerd Worker serves `/api/*` and Vite serves the SPA on the same port (no proxy). Both read from the single `.env` file.
 
 ### Test & Build
 
