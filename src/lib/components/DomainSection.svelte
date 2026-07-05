@@ -10,6 +10,7 @@
   import { startProgressPolling, stopProgressPolling } from '../gmail/progressPoller.js';
   import { getErrorMessage } from '../errors.js';
   import { postScanLog } from '../supabase/api.js';
+  import { clearScanState } from '../persistScan.js';
   import DomainItem from './DomainItem.svelte';
 
   let searchQuery = '';
@@ -90,6 +91,9 @@
 
     try {
       await cleaner.cleanup(threads);
+      // The persisted scan is stale now — trashed threads are gone from Gmail
+      // but still in our snapshot. Cheaper to force a rescan than to prune.
+      clearScanState();
       // Log the cleanup action — threads.length is what we attempted to remove.
       postScanLog({
         threads_scanned: 0,

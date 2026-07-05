@@ -23,6 +23,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "hono": "^4.7.0",
+    "stripe": "^22.3.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

@@ -12,6 +12,8 @@
   import { startProgressPolling, stopProgressPolling } from '../gmail/progressPoller.js';
   import { getErrorMessage } from '../errors.js';
   import { postScanLog } from '../supabase/api.js';
+  import { saveScanState } from '../persistScan.js';
+  import { supabase } from '../supabase/client.js';
 
   let includeArchived = false;
   let activeCollector = null;
@@ -50,6 +52,20 @@
         threads_scanned: collector.progress.scanned,
         threads_trashed: 0,
       }).catch((err) => console.warn('scan-log POST failed:', err));
+
+      // Persist so the results survive a Stripe round-trip or page reload.
+      // Cleared on sign-out (AuthSection) and after a successful cleanup.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      if (userId) {
+        saveScanState({
+          collectionResult: result,
+          domains: $domains,
+          selectedThreadIds: $selectedThreadIds,
+          expandedDomains: $expandedDomains,
+          userId,
+        });
+      }
 
       setTimeout(() => {
         hideProgress();

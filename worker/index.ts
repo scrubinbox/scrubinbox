@@ -1,13 +1,16 @@
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
+import Stripe from 'stripe'
 import { z } from 'zod'
 
 type Env = {
   SUPABASE_URL: string
   SUPABASE_ANON_KEY: string
   SUPABASE_SERVICE_ROLE_KEY: string
-  LEMONSQUEEZY_WEBHOOK_SECRET: string
+  STRIPE_SECRET_KEY: string
+  STRIPE_WEBHOOK_SECRET: string
+  STRIPE_PRICE_ID: string
   ASSETS: { fetch: (req: Request) => Promise<Response> }
 }
 
@@ -17,6 +20,15 @@ type AuthedVars = {
 }
 
 const app = new Hono<{ Bindings: Env; Variables: AuthedVars }>()
+
+// Stripe SDK bound to fetch — required on Workers (default Node http agent
+// isn't available). constructEventAsync uses SubtleCrypto for signature
+// verification, also Workers-safe.
+function stripeClient(env: Env): Stripe {
+  return new Stripe(env.STRIPE_SECRET_KEY, {
+    httpClient: Stripe.createFetchHttpClient(),
+  })
+}
 
 // --- Auth middleware ---
 // Constructs a Supabase client bound to the caller's JWT, then validates it.
@@ -106,12 +118,100 @@ api.post('/scan-log', requireAuth, async (c) => {
   return c.json({ ok: true }, 201)
 })
 
-// --- Webhooks ---
-// Stub: Phase 5 implements HMAC verification + entitlement upsert via the
-// service-role client. Returning 501 so misrouted production traffic fails
-// loudly rather than silently dropping order events.
-api.post('/webhooks/lemonsqueezy', (c) => {
-  return c.json({ error: 'not implemented — Phase 5' }, 501)
+// --- POST /api/create-checkout-session ---
+// Creates a Stripe hosted checkout session for the ScrubInbox Lifetime price.
+// The user's Supabase id rides in session.metadata.user_id — the webhook uses
+// it to link the resulting entitlement row back to auth.users.
+api.post('/create-checkout-session', requireAuth, async (c) => {
+  const stripe = stripeClient(c.env)
+  const origin = new URL(c.req.url).origin
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: [{ price: c.env.STRIPE_PRICE_ID, quantity: 1 }],
+    // {CHECKOUT_SESSION_ID} is a Stripe template — replaced with the actual id
+    // when Stripe redirects the customer to success_url. /welcome uses it to
+    // correlate the pending purchase with the eventual webhook.
+    success_url: `${origin}/welcome?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/`,
+    customer_email: c.var.user.email ?? undefined,
+    // Force customer creation so the webhook always receives a customer id.
+    // Default 'if_required' skips customer creation for one-time payments,
+    // which surfaced as a NOT-NULL violation on the entitlements insert until
+    // migration 20260704232014 dropped that constraint.
+    customer_creation: 'always',
+    metadata: { user_id: c.var.user.id },
+    // Automatic tax handled by Managed Payments — we don't set tax settings here.
+  })
+
+  if (!session.url) {
+    return c.json({ error: 'stripe returned no checkout url' }, 502)
+  }
+  return c.json({ url: session.url })
+})
+
+// --- POST /api/webhooks/stripe ---
+// Verifies the Stripe-Signature header, then handles checkout.session.completed
+// by upserting an entitlement row via the service-role client (bypasses RLS —
+// no user JWT on the webhook request). Idempotent on (user_id) so Stripe
+// retries collapse to a no-op after the first success.
+api.post('/webhooks/stripe', async (c) => {
+  const signature = c.req.header('stripe-signature')
+  if (!signature) return c.json({ error: 'missing stripe-signature header' }, 400)
+
+  // constructEventAsync verifies the HMAC-SHA256 signature against the raw body
+  // bytes and the timestamp Stripe includes in the header. Any tampering, wrong
+  // secret, or expired timestamp throws — caught below.
+  const rawBody = await c.req.text()
+  const stripe = stripeClient(c.env)
+  let event: Stripe.Event
+  try {
+    event = await stripe.webhooks.constructEventAsync(
+      rawBody,
+      signature,
+      c.env.STRIPE_WEBHOOK_SECRET,
+    )
+  } catch (err) {
+    return c.json({ error: `signature verification failed: ${(err as Error).message}` }, 400)
+  }
+
+  if (event.type !== 'checkout.session.completed') {
+    // We're only subscribed to checkout.session.completed for MVP; any other
+    // event here means the endpoint config drifted. Ack so Stripe doesn't retry.
+    return c.json({ received: true, note: `ignored event ${event.type}` })
+  }
+
+  const session = event.data.object
+  const userId = session.metadata?.user_id
+  if (!userId) {
+    return c.json({ error: 'checkout session missing metadata.user_id' }, 400)
+  }
+  if (session.payment_status !== 'paid') {
+    // async payment methods can complete-then-fail; ignore until actually paid.
+    return c.json({ received: true, note: `payment_status=${session.payment_status}` })
+  }
+
+  const admin = createClient(c.env.SUPABASE_URL, c.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+
+  const { error } = await admin.from('entitlements').upsert(
+    {
+      user_id: userId,
+      type: 'lifetime',
+      stripe_session_id: session.id,
+      stripe_customer_id:
+        typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null),
+      early_adopter: true,
+    },
+    { onConflict: 'user_id' },
+  )
+
+  if (error) {
+    // Return 500 so Stripe retries; upsert on user_id makes retries no-ops.
+    return c.json({ error: error.message }, 500)
+  }
+  return c.json({ received: true })
 })
 
 app.route('/api', api)

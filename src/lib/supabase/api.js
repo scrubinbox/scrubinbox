@@ -51,3 +51,13 @@ export function postScanLog({ threads_scanned, threads_trashed }) {
     body: JSON.stringify({ threads_scanned, threads_trashed }),
   });
 }
+
+/**
+ * Creates a Stripe Checkout Session for the ScrubInbox Lifetime price and
+ * returns { url } for the client to redirect to. The user's Supabase id is
+ * threaded through as session.metadata.user_id on the server so the webhook
+ * can link the resulting entitlement back.
+ */
+export function createCheckoutSession() {
+  return request('/create-checkout-session', { method: 'POST' });
+}

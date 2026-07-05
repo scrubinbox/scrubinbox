@@ -1,11 +1,24 @@
 <script>
   import { showMain } from '../stores/uiStore.js';
   import { isPaid, userEmail } from '../stores/authStore.js';
+  import { createCheckoutSession } from '../supabase/api.js';
+  import { getErrorMessage } from '../errors.js';
 
-  // Phase 5 will wire this to LemonSqueezy hosted checkout with the
-  // signed-in user's id passed in custom_data so the webhook can link
-  // the order back to the user.
-  const PURCHASE_AVAILABLE = false;
+  let redirecting = false;
+  let error = '';
+
+  async function handlePurchase() {
+    if (redirecting) return;
+    redirecting = true;
+    error = '';
+    try {
+      const { url } = await createCheckoutSession();
+      window.location.href = url;
+    } catch (err) {
+      error = `Couldn't start checkout: ${getErrorMessage(err)}`;
+      redirecting = false;
+    }
+  }
 </script>
 
 <div class="bg-white rounded-xl shadow-sm border border-sage-200 p-6 sm:p-10">
@@ -46,24 +59,35 @@
     </ul>
 
     <button
-      disabled={!PURCHASE_AVAILABLE}
+      on:click={handlePurchase}
+      disabled={redirecting || $isPaid}
       class="w-full bg-sage-600 hover:bg-sage-700 text-white font-semibold py-2.5 px-6 rounded-lg disabled:bg-sage-200 disabled:cursor-not-allowed transition-colors text-sm"
     >
-      {PURCHASE_AVAILABLE ? 'Purchase' : 'Checkout coming soon (Phase 5)'}
+      {#if redirecting}
+        Redirecting to checkout…
+      {:else if $isPaid}
+        Already purchased
+      {:else}
+        Purchase
+      {/if}
     </button>
 
-    {#if !PURCHASE_AVAILABLE}
-      <div class="text-[11px] text-sage-400 mt-4 text-left">
-        <p class="mb-1.5">Local dev: run this in the Supabase SQL Editor (signed in once) to unlock paid actions:</p>
-        <pre class="bg-sage-100 rounded p-2 overflow-x-auto whitespace-pre"><code>{`INSERT INTO entitlements
-  (user_id, type, lemonsqueezy_order_id, lemonsqueezy_customer_id, early_adopter)
+    {#if error}
+      <p class="text-xs text-red-500 mt-3 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        {error}
+      </p>
+    {/if}
+
+    <div class="text-[11px] text-sage-400 mt-4 text-left">
+      <p class="mb-1.5">Local dev shortcut (skip Stripe): run this in the Supabase SQL Editor while signed in to unlock paid actions.</p>
+      <pre class="bg-sage-100 rounded p-2 overflow-x-auto whitespace-pre"><code>{`INSERT INTO entitlements
+  (user_id, type, stripe_session_id, stripe_customer_id, early_adopter)
 VALUES (
   (SELECT id FROM auth.users WHERE email = '${$userEmail || 'YOUR_EMAIL'}'),
-  'lifetime', 'mock-001', 'mock-cust-001', true
+  'lifetime', 'mock_cs_001', 'mock_cus_001', true
 );`}</code></pre>
-        <p class="mt-1.5">Then reload this page.</p>
-      </div>
-    {/if}
+      <p class="mt-1.5">Then reload this page.</p>
+    </div>
 
     {#if $isPaid}
       <p class="text-xs text-emerald-600 mt-4">
