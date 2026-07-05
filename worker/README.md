@@ -17,7 +17,7 @@ touches the backend — only identity, entitlement, and scan logs.
 
 ```bash
 # From repo root:
-cp .env.example .env                # frontend env (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+cp .env.example .env                # frontend env (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY)
 cp .dev.vars.example .dev.vars      # worker env (SUPABASE_URL + anon + service-role keys)
 
 # Fill in the values from the staging Supabase dashboard
@@ -59,7 +59,7 @@ WHERE user_id = (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL');
 
 ## Service-role usage
 
-`SUPABASE_SERVICE_ROLE_KEY` bypasses RLS. **Only the LemonSqueezy webhook
+`SUPABASE_SECRET_KEY` bypasses RLS. **Only the LemonSqueezy webhook
 handler uses it** — every other path constructs a client from the user's JWT
 so RLS enforces who can read/write what.
 
@@ -68,8 +68,8 @@ so RLS enforces who can read/write what.
 ```bash
 # Set secrets once per environment:
 wrangler secret put SUPABASE_URL --env staging
-wrangler secret put SUPABASE_ANON_KEY --env staging
-wrangler secret put SUPABASE_SERVICE_ROLE_KEY --env staging
+wrangler secret put SUPABASE_PUBLISHABLE_KEY --env staging
+wrangler secret put SUPABASE_SECRET_KEY --env staging
 wrangler secret put LEMONSQUEEZY_WEBHOOK_SECRET --env staging
 
 # Deploy (runs `vite build` then `wrangler deploy` against the generated

@@ -6,8 +6,8 @@ import { z } from 'zod'
 
 type Env = {
   SUPABASE_URL: string
-  SUPABASE_ANON_KEY: string
-  SUPABASE_SERVICE_ROLE_KEY: string
+  SUPABASE_PUBLISHABLE_KEY: string
+  SUPABASE_SECRET_KEY: string
   STRIPE_SECRET_KEY: string
   STRIPE_WEBHOOK_SECRET: string
   STRIPE_PRICE_ID: string
@@ -42,7 +42,7 @@ const requireAuth = createMiddleware<{ Bindings: Env; Variables: AuthedVars }>(
     }
     const jwt = header.slice('Bearer '.length)
 
-    const supabase = createClient(c.env.SUPABASE_URL, c.env.SUPABASE_ANON_KEY, {
+    const supabase = createClient(c.env.SUPABASE_URL, c.env.SUPABASE_PUBLISHABLE_KEY, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     })
@@ -191,7 +191,7 @@ api.post('/webhooks/stripe', async (c) => {
     return c.json({ received: true, note: `payment_status=${session.payment_status}` })
   }
 
-  const admin = createClient(c.env.SUPABASE_URL, c.env.SUPABASE_SERVICE_ROLE_KEY, {
+  const admin = createClient(c.env.SUPABASE_URL, c.env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 

@@ -50,7 +50,7 @@ jobs:
         # bundle is thrown away. Real values are injected on the deploy job.
         env:
           VITE_SUPABASE_URL: "https://ci-placeholder.supabase.co"
-          VITE_SUPABASE_ANON_KEY: "ci-placeholder"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder"
         run: npm run build
 
   deploy-staging:
@@ -84,7 +84,7 @@ jobs:
       - name: Build (staging)
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           # Version stamp: first 7 chars of the commit SHA, so the app footer
           # in staging shows which build is live.
           VITE_APP_VERSION: staging-${{ github.sha }}
