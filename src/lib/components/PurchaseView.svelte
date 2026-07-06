@@ -4,6 +4,13 @@
   import { createCheckoutSession } from '../supabase/api.js';
   import { getErrorMessage } from '../errors.js';
 
+  // Show the mock-pay SQL snippet only where it's useful: local dev
+  // (Vite's built-in DEV flag) and any pre-release build (staging-*).
+  // Real production builds — tag releases (v*.*.*) and workflow_dispatch
+  // (manual-<sha>) — never show it.
+  const appVersion = import.meta.env.VITE_APP_VERSION || 'dev';
+  const showDevShortcut = import.meta.env.DEV || appVersion.startsWith('staging-');
+
   let redirecting = false;
   let error = '';
 
@@ -86,16 +93,18 @@
       </p>
     {/if}
 
-    <div class="text-[11px] text-sage-400 mt-4 text-left">
-      <p class="mb-1.5">Local dev shortcut (skip Stripe): run this in the Supabase SQL Editor while signed in to unlock paid actions.</p>
-      <pre class="bg-sage-100 rounded p-2 overflow-x-auto whitespace-pre"><code>{`INSERT INTO entitlements
+    {#if showDevShortcut}
+      <div class="text-[11px] text-sage-400 mt-4 text-left">
+        <p class="mb-1.5">Local dev shortcut (skip Stripe): run this in the Supabase SQL Editor while signed in to unlock paid actions.</p>
+        <pre class="bg-sage-100 rounded p-2 overflow-x-auto whitespace-pre"><code>{`INSERT INTO entitlements
   (user_id, type, stripe_session_id, stripe_customer_id, early_adopter)
 VALUES (
   (SELECT id FROM auth.users WHERE email = '${$userEmail || 'YOUR_EMAIL'}'),
   'lifetime', 'mock_cs_001', 'mock_cus_001', true
 );`}</code></pre>
-      <p class="mt-1.5">Then reload this page.</p>
-    </div>
+        <p class="mt-1.5">Then reload this page.</p>
+      </div>
+    {/if}
 
     {#if $isPaid}
       <p class="text-xs text-emerald-600 mt-4">
