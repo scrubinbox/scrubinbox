@@ -2,7 +2,7 @@
 
 Single Workers + Assets deploy: this Worker serves the built Svelte SPA from
 its asset binding and routes `/api/*` to Hono handlers. Email content never
-touches the backend — only identity, entitlement, and scan logs.
+touches the backend — only identity, entitlement, and scan-log counts.
 
 ## Endpoints
 
@@ -11,7 +11,8 @@ touches the backend — only identity, entitlement, and scan logs.
 | `GET` | `/api/health` | none | Liveness check |
 | `GET` | `/api/me` | Supabase JWT | `{paid, type, expires_at, trial_used}` |
 | `POST` | `/api/scan-log` | Supabase JWT | Append to `scan_logs` (RLS-scoped) |
-| `POST` | `/api/webhooks/lemonsqueezy` | HMAC | Upsert `entitlements` (Phase 5 — currently stub) |
+| `POST` | `/api/create-checkout-session` | Supabase JWT | Create Stripe hosted-checkout session |
+| `POST` | `/api/webhooks/stripe` | Stripe signature | Upsert `entitlements` on `checkout.session.completed` |
 
 ## Local development
 
@@ -35,15 +36,15 @@ Open http://localhost:5173 — same-origin for both the app and the API.
 ## Mock-paying a user in local dev
 
 The paywall gate consults `GET /api/me`, which returns `paid: true` when an
-`entitlements` row exists for the user. Until LemonSqueezy is wired up
-(Phase 5), unlock paid actions by inserting a row directly:
+`entitlements` row exists for the user. To unlock paid actions without
+running the full Stripe checkout, insert a row directly:
 
 ```sql
 INSERT INTO entitlements
-  (user_id, type, lemonsqueezy_order_id, lemonsqueezy_customer_id, early_adopter)
+  (user_id, type, stripe_session_id, stripe_customer_id, early_adopter)
 VALUES (
   (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL'),
-  'lifetime', 'mock-001', 'mock-cust-001', true
+  'lifetime', 'mock_cs_001', 'mock_cus_001', true
 );
 ```
 
@@ -59,24 +60,33 @@ WHERE user_id = (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL');
 
 ## Service-role usage
 
-`SUPABASE_SECRET_KEY` bypasses RLS. **Only the LemonSqueezy webhook
-handler uses it** — every other path constructs a client from the user's JWT
-so RLS enforces who can read/write what.
+`SUPABASE_SECRET_KEY` bypasses RLS. **Only the Stripe webhook handler uses
+it** — every other path constructs a client from the user's JWT so RLS
+enforces who can read/write what.
 
 ## Deploy
 
-```bash
-# Set secrets once per environment:
-wrangler secret put SUPABASE_URL --env staging
-wrangler secret put SUPABASE_PUBLISHABLE_KEY --env staging
-wrangler secret put SUPABASE_SECRET_KEY --env staging
-wrangler secret put LEMONSQUEEZY_WEBHOOK_SECRET --env staging
+Deploys are automated (Phase 7a):
 
-# Deploy (runs `vite build` then `wrangler deploy` against the generated
-# dist/scrubinbox/wrangler.json):
-npm run deploy
-npm run deploy -- --env staging
+- **Staging** — every push to `main` triggers `ci.yml`'s `deploy-staging` job
+  (`wrangler deploy --env staging` after tests pass).
+- **Production** — pushing a `v*.*.*` tag triggers `release.yml`, which
+  pauses at the `production` GitHub Environment gate for reviewer approval,
+  then `wrangler deploy --env production`. `workflow_dispatch` on the same
+  workflow is the manual-override path.
+
+Both environments read `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`
+from their respective GitHub Environment secrets at build time. Worker
+runtime secrets (`SUPABASE_*`, `STRIPE_*`) are set per environment via
+`wrangler secret put --env {staging,production} <NAME>`.
+
+For a first-time environment bring-up, the 6 runtime secrets are:
+
 ```
-
-Multi-environment wrangler config (`[env.staging]`, `[env.production]`)
-lands as part of Phase 7a.
+wrangler secret put SUPABASE_URL --env <env> -c wrangler.toml
+wrangler secret put SUPABASE_PUBLISHABLE_KEY --env <env> -c wrangler.toml
+wrangler secret put SUPABASE_SECRET_KEY --env <env> -c wrangler.toml
+wrangler secret put STRIPE_SECRET_KEY --env <env> -c wrangler.toml
+wrangler secret put STRIPE_WEBHOOK_SECRET --env <env> -c wrangler.toml
+wrangler secret put STRIPE_PRICE_ID --env <env> -c wrangler.toml
+```
