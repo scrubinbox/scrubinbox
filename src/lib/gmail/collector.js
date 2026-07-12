@@ -5,7 +5,6 @@
 import { getInboxInfo, getProfile, getLabelInfo, listThreads, getThread } from './api.js';
 import { ThreadsList, Thread, CleanupThread, DomainResult, CollectionResult } from '../models/index.js';
 import {
-  SUBJECT_TRUNCATE_COLLECTOR,
   THREAD_PAGE_SIZE,
   API_CONCURRENCY,
 } from '../constants.js';
@@ -67,32 +66,33 @@ export class DomainCollector {
           break;
         }
 
-        // Fetch all threads in page concurrently
-        const threads = await asyncPool(page.threadIds, API_CONCURRENCY, (id) => this._getThread(id));
+        // Fetch + process threads concurrently. Doing the sync bookkeeping
+        // (increment scanned, filter, store, count domains) INSIDE the pool
+        // callback means each network I/O naturally spaces the progress
+        // writes over the duration of the fetch. A prior version awaited
+        // the whole pool then ran a synchronous for-loop — that burst
+        // finished before the 100ms progress poller could fire, so users
+        // saw "Scanned 0 threads" until the results view appeared.
+        await asyncPool(page.threadIds, API_CONCURRENCY, async (id) => {
+          if (this.interrupted) return;
 
-        // Process results sequentially (filters, progress, storage)
-        for (const thread of threads) {
-          if (this.interrupted) break;
+          const thread = await this._getThread(id);
 
           scanned += 1;
           this.progress.scanned = scanned;
 
-          if (thread === null) continue;
-          if (!this._shouldInclude(thread)) continue;
+          if (thread === null) return;
+          if (!this._shouldInclude(thread)) return;
 
-          // Store thread
           this._storeThread(thread);
 
-          // Track domain count
           const domain = thread.getDomain();
           domainCounts[domain] = (domainCounts[domain] || 0) + 1;
 
           collected += 1;
-
-          // Update pollable progress in-place (no await, no callback)
           this.progress.collected = collected;
           this.progress.uniqueDomains = Object.keys(domainCounts).length;
-        }
+        });
 
         pageToken = page.nextPageToken;
         if (!pageToken) break;
