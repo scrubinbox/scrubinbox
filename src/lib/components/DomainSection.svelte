@@ -9,7 +9,7 @@
   import { createProgressHandler } from '../gmail/progressHandler.js';
   import { startProgressPolling, stopProgressPolling } from '../gmail/progressPoller.js';
   import { getErrorMessage } from '../errors.js';
-  import { postScanLog } from '../supabase/api.js';
+  import { postScanLog } from '../api.js';
   import { clearScanState } from '../persistScan.js';
   import DomainItem from './DomainItem.svelte';
 

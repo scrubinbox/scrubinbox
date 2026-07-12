@@ -1,44 +1,30 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { isAuthenticated, userEmail, isPaid, entitlementLoaded } from '../stores/authStore.js';
+  import { onMount } from 'svelte';
+  import { isAuthenticated, userId, userEmail, isPaid, entitlementLoaded } from '../stores/authStore.js';
   import { collectionResult, domains } from '../stores/collectionStore.js';
   import { selectedThreadIds, expandedDomains } from '../stores/cleanupStore.js';
   import { showDomains } from '../stores/uiStore.js';
-  import { supabase } from '../supabase/client.js';
-  import { getMe } from '../supabase/api.js';
-  import { initGoogleLibraries, attachSessionToGapi, signIn, signOut } from '../gmail/auth.js';
+  import { getMe } from '../api.js';
+  import { signIn } from '../auth.js';
+  import { initGoogleLibraries, ensureGmailToken, signOut } from '../gmail/auth.js';
   import { getErrorMessage } from '../errors.js';
   import { loadScanState, clearScanState } from '../persistScan.js';
 
   let restoredForUserId = null;
-
   let authReady = false;
   let authBtnDisabled = false;
   let authBtnText = 'Sign in with Google';
   let authError = '';
-  let subscription = null;
-
-  async function refreshEntitlement() {
-    try {
-      const me = await getMe();
-      $isPaid = !!me.paid;
-    } catch (err) {
-      $isPaid = false;
-      authError = `Couldn't load entitlement: ${getErrorMessage(err)}`;
-    } finally {
-      $entitlementLoaded = true;
-    }
-  }
 
   // Persisted scan snapshots (sessionStorage) survive the Stripe round-trip
   // and page reloads. Only restore once we've confirmed which user is signed
   // in and it matches — otherwise the previous user's tab could show
   // someone else's scan results after they sign out and back in.
-  function maybeRestoreScan(userId) {
-    if (!userId || restoredForUserId === userId) return;
+  function maybeRestoreScan(id) {
+    if (!id || restoredForUserId === id) return;
     const saved = loadScanState();
     if (!saved) return;
-    if (saved.userId !== userId) {
+    if (saved.userId !== id) {
       clearScanState();
       return;
     }
@@ -47,51 +33,48 @@
     $selectedThreadIds = saved.selectedThreadIds;
     $expandedDomains = saved.expandedDomains;
     showDomains();
-    restoredForUserId = userId;
+    restoredForUserId = id;
   }
 
-  async function syncFromSession(session) {
-    if (!session) {
-      $isAuthenticated = false;
-      $userEmail = '';
-      $isPaid = false;
-      $entitlementLoaded = false;
-      restoredForUserId = null;
-      clearScanState();
+  function clearAuthState() {
+    $isAuthenticated = false;
+    $userId = '';
+    $userEmail = '';
+    $isPaid = false;
+    $entitlementLoaded = false;
+    restoredForUserId = null;
+    clearScanState();
+  }
+
+  async function loadSession() {
+    const me = await getMe();
+    if (!me) {
+      clearAuthState();
       return;
     }
-    const attached = await attachSessionToGapi();
-    $isAuthenticated = attached;
-    $userEmail = session.user?.email ?? '';
-    if (attached) {
-      await refreshEntitlement();
-      maybeRestoreScan(session.user?.id);
+    try {
+      await ensureGmailToken();
+    } catch (err) {
+      authError = `Couldn't attach Gmail token: ${getErrorMessage(err)}`;
+      clearAuthState();
+      return;
     }
+    $userId = me.id;
+    $userEmail = me.email ?? '';
+    $isPaid = !!me.paid;
+    $entitlementLoaded = true;
+    $isAuthenticated = true;
+    maybeRestoreScan(me.id);
   }
 
   onMount(async () => {
     try {
       await initGoogleLibraries();
       authReady = true;
-
-      // Pick up an existing session (e.g. user revisits or just completed the
-      // OAuth redirect — detectSessionInUrl already exchanged the ?code=).
-      const { data } = await supabase.auth.getSession();
-      await syncFromSession(data.session);
-
-      // React to subsequent auth events (sign-out from another tab, token
-      // refresh that rotates provider_token, etc.).
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        syncFromSession(session);
-      });
-      subscription = sub.subscription;
+      await loadSession();
     } catch (error) {
       authError = `Failed to load Google libraries: ${getErrorMessage(error)}`;
     }
-  });
-
-  onDestroy(() => {
-    subscription?.unsubscribe();
   });
 
   async function handleSignIn() {
@@ -100,8 +83,8 @@
     authBtnText = 'Redirecting…';
     authError = '';
     try {
-      await signIn();
-      // The page navigates away; nothing to do post-call.
+      signIn();
+      // Page navigates away; nothing to do post-call.
     } catch (error) {
       authError = `Authentication failed: ${getErrorMessage(error)}`;
       authBtnDisabled = false;
@@ -112,7 +95,7 @@
   async function handleSignOut() {
     try {
       await signOut();
-      // onAuthStateChange clears the stores.
+      clearAuthState();
     } catch (error) {
       authError = `Sign out error: ${getErrorMessage(error)}`;
     }

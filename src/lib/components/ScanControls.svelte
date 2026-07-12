@@ -1,5 +1,5 @@
 <script>
-  import { isAuthenticated } from '../stores/authStore.js';
+  import { isAuthenticated, userId } from '../stores/authStore.js';
   import { isCollecting, domains, collectionResult } from '../stores/collectionStore.js';
   import { selectedThreadIds, expandedDomains } from '../stores/cleanupStore.js';
   import { errorMessage } from '../stores/progressStore.js';
@@ -11,9 +11,8 @@
   import { createProgressHandler } from '../gmail/progressHandler.js';
   import { startProgressPolling, stopProgressPolling } from '../gmail/progressPoller.js';
   import { getErrorMessage } from '../errors.js';
-  import { postScanLog } from '../supabase/api.js';
+  import { postScanLog } from '../api.js';
   import { saveScanState } from '../persistScan.js';
-  import { supabase } from '../supabase/client.js';
 
   let includeArchived = false;
   let activeCollector = null;
@@ -55,15 +54,13 @@
 
       // Persist so the results survive a Stripe round-trip or page reload.
       // Cleared on sign-out (AuthSection) and after a successful cleanup.
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user?.id;
-      if (userId) {
+      if ($userId) {
         saveScanState({
           collectionResult: result,
           domains: $domains,
           selectedThreadIds: $selectedThreadIds,
           expandedDomains: $expandedDomains,
-          userId,
+          userId: $userId,
         });
       }
 

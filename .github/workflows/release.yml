@@ -70,11 +70,10 @@ jobs:
           fi
 
       - name: Build (production)
-        # Secrets below resolve to the `production` GitHub Environment
-        # (declared on the job above) — same plain names as staging.
+        # Client bundle no longer needs auth-related VITE_ vars — roll-own
+        # OAuth flow runs entirely in the Worker. Only the version stamp is
+        # baked in at build time.
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_APP_VERSION: ${{ steps.version.outputs.value }}
         run: npm run build
 

@@ -2,27 +2,39 @@
 
 Single Workers + Assets deploy: this Worker serves the built Svelte SPA from
 its asset binding and routes `/api/*` to Hono handlers. Email content never
-touches the backend — only identity, entitlement, and scan-log counts.
+touches the backend — only identity, entitlement, Google refresh tokens
+(AES-GCM-encrypted at rest), and scan-log counts.
 
 ## Endpoints
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `GET` | `/api/health` | none | Liveness check |
-| `GET` | `/api/me` | Supabase JWT | `{paid, type, expires_at, trial_used}` |
-| `POST` | `/api/scan-log` | Supabase JWT | Append to `scan_logs` (RLS-scoped) |
-| `POST` | `/api/create-checkout-session` | Supabase JWT | Create Stripe hosted-checkout session |
+| `GET` | `/api/auth/google/start` | none | Redirect to Google OAuth (sets `oauth_state` cookie) |
+| `GET` | `/api/auth/google/callback` | Google | Exchange code, upsert user, set `sb_session` cookie |
+| `POST` | `/api/auth/signout` | session | Clear the session cookie |
+| `GET` | `/api/auth/gmail-token` | session | Return `{access_token, expires_at}` — Google access token refreshed from the encrypted refresh token in Neon |
+| `GET` | `/api/me` | session | `{id, email, paid, type, expires_at, trial_used}` |
+| `POST` | `/api/scan-log` | session | Append to `scan_logs` (`user_id` bound from session) |
+| `POST` | `/api/create-checkout-session` | session | Create Stripe hosted-checkout session |
 | `POST` | `/api/webhooks/stripe` | Stripe signature | Upsert `entitlements` on `checkout.session.completed` |
 
 ## Local development
 
 ```bash
 # From repo root:
-cp .env.example .env    # single file — VITE_ vars for the SPA build +
-                        # SUPABASE_* / STRIPE_* vars for the Worker runtime.
+cp .env.example .env
 
-# Fill in the values from the staging Supabase dashboard
-# (Project Settings → API) and Stripe test-mode dashboard.
+# Fill in values:
+#   DATABASE_URL                  Neon staging branch pooled connection string
+#   GOOGLE_CLIENT_ID/SECRET       staging Google OAuth client
+#                                 (add http://localhost:5173/api/auth/google/callback
+#                                 to its Authorized redirect URIs first)
+#   SESSION_SIGNING_SECRET        openssl rand -base64 32
+#   REFRESH_TOKEN_ENCRYPTION_KEY  openssl rand -base64 32
+#   STRIPE_*                      test-mode; run `stripe listen --forward-to
+#                                 http://localhost:5173/api/webhooks/stripe`
+#                                 to get a whsec_
 
 npm install
 npm run dev          # one terminal — Vite + Worker in a single process via
@@ -33,6 +45,18 @@ npm run dev          # one terminal — Vite + Worker in a single process via
 
 Open http://localhost:5173 — same-origin for both the app and the API.
 
+## Applying schema changes to Neon
+
+Migrations live in `db/migrations/`. Applied via plain `psql`:
+
+```bash
+psql "$DATABASE_URL" -f db/migrations/0001_init.sql
+```
+
+Neon's HTTP driver used at runtime doesn't handle DDL well; `psql` (or
+`neon` CLI) is the right tool for one-shot schema work. Add a proper
+migration runner (dbmate / drizzle-kit) once migration cadence justifies it.
+
 ## Mock-paying a user in local dev
 
 The paywall gate consults `GET /api/me`, which returns `paid: true` when an
@@ -40,29 +64,34 @@ The paywall gate consults `GET /api/me`, which returns `paid: true` when an
 running the full Stripe checkout, insert a row directly:
 
 ```sql
-INSERT INTO entitlements
+insert into entitlements
   (user_id, type, stripe_session_id, stripe_customer_id, early_adopter)
-VALUES (
-  (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL'),
+values (
+  (select id from users where email = 'YOUR_EMAIL'),
   'lifetime', 'mock_cs_001', 'mock_cus_001', true
 );
 ```
 
-Run it in the **Supabase staging SQL Editor** (Dashboard → SQL Editor). Sign
-into the app at least once first so `auth.users` has your row.
+Run against the Neon staging branch (Neon dashboard → SQL Editor, or
+`psql "$DATABASE_URL"`). Sign in at least once first so a `users` row exists.
 
 To re-lock:
 
 ```sql
-DELETE FROM entitlements
-WHERE user_id = (SELECT id FROM auth.users WHERE email = 'YOUR_EMAIL');
+delete from entitlements
+where user_id = (select id from users where email = 'YOUR_EMAIL');
 ```
 
-## Service-role usage
+## Refresh-token storage
 
-`SUPABASE_SECRET_KEY` bypasses RLS. **Only the Stripe webhook handler uses
-it** — every other path constructs a client from the user's JWT so RLS
-enforces who can read/write what.
+`users.encrypted_refresh_token` is AES-256-GCM-encrypted with the Worker's
+`REFRESH_TOKEN_ENCRYPTION_KEY` before write. Format: `iv (12 bytes) ||
+ciphertext (includes auth tag)`. Only the Worker can decrypt — no plaintext
+refresh tokens ever leave process memory, and none reach the client.
+
+The Stripe webhook path is the only handler that writes user data without an
+active session cookie; Stripe's HMAC signature (verified via
+`constructEventAsync`) is what authorizes those writes.
 
 ## Deploy
 
@@ -75,17 +104,18 @@ Deploys are automated (Phase 7a):
   then `wrangler deploy --env production`. `workflow_dispatch` on the same
   workflow is the manual-override path.
 
-Both environments read `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`
-from their respective GitHub Environment secrets at build time. Worker
-runtime secrets (`SUPABASE_*`, `STRIPE_*`) are set per environment via
-`wrangler secret put --env {staging,production} <NAME>`.
+The client bundle no longer requires any per-environment `VITE_` auth vars —
+the roll-own OAuth flow runs entirely in the Worker, so the same bundle can
+target staging or production.
 
-For a first-time environment bring-up, the 6 runtime secrets are:
+For a first-time environment bring-up, the 8 runtime secrets are:
 
 ```
-wrangler secret put SUPABASE_URL --env <env> -c wrangler.toml
-wrangler secret put SUPABASE_PUBLISHABLE_KEY --env <env> -c wrangler.toml
-wrangler secret put SUPABASE_SECRET_KEY --env <env> -c wrangler.toml
+wrangler secret put DATABASE_URL --env <env> -c wrangler.toml
+wrangler secret put GOOGLE_CLIENT_ID --env <env> -c wrangler.toml
+wrangler secret put GOOGLE_CLIENT_SECRET --env <env> -c wrangler.toml
+wrangler secret put SESSION_SIGNING_SECRET --env <env> -c wrangler.toml
+wrangler secret put REFRESH_TOKEN_ENCRYPTION_KEY --env <env> -c wrangler.toml
 wrangler secret put STRIPE_SECRET_KEY --env <env> -c wrangler.toml
 wrangler secret put STRIPE_WEBHOOK_SECRET --env <env> -c wrangler.toml
 wrangler secret put STRIPE_PRICE_ID --env <env> -c wrangler.toml
