@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { showMain } from '../stores/uiStore.js';
   import { isPaid, entitlementLoaded } from '../stores/authStore.js';
-  import { getMe } from '../supabase/api.js';
+  import { getMe } from '../api.js';
   import { getErrorMessage } from '../errors.js';
 
   // Post-checkout landing. Stripe redirects the user here with

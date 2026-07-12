@@ -1,24 +1,26 @@
 /**
- * Gmail auth bridge: Supabase mediates OAuth, we use the resulting
- * provider_token (Google access token) with gapi.client to call the Gmail API.
+ * Gmail auth bridge: our Worker mints Google access tokens from encrypted
+ * refresh tokens stored in Neon. We push them into gapi.client so all existing
+ * Gmail API calls keep working unchanged.
  *
- * Flow:
- *   1. App calls signIn() → supabase.auth.signInWithOAuth → browser redirects
- *      through Supabase → Google → Supabase → back here with ?code=
- *   2. supabase.auth.detectSessionInUrl (configured in client.js) exchanges
- *      the code for a session whose `provider_token` is the Google access token.
- *   3. attachSessionToGapi() pushes provider_token into gapi.client so all
- *      existing Gmail API calls in api.js keep working unchanged.
- *   4. On 401, refreshGoogleAccessToken() asks Supabase to refresh the session,
- *      which also refreshes provider_token via the stored Google refresh token.
+ * Access-token lifecycle:
+ *   - Access tokens last ~1 hour. `ensureGmailToken()` fetches a fresh one from
+ *     the Worker and caches it in memory (`token` + `expiresAt`) so scans don't
+ *     round-trip through the Worker on every call.
+ *   - `refreshGoogleAccessToken()` forces a re-fetch. Used as the 401 recovery
+ *     path in `../api.js` (Gmail wrapper).
+ *   - `signOut()` clears the gapi token and calls the Worker to drop the session
+ *     cookie.
  */
 
-import { supabase } from '../supabase/client.js';
+import { getGmailToken, signOut as apiSignOut } from '../api.js';
 
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest';
-const GMAIL_SCOPE = 'https://mail.google.com/';
+const REFRESH_MARGIN_SECONDS = 5 * 60;
 
 let gapiInited = false;
+let cachedToken = null;
+let cachedExpiresAt = 0;
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -56,7 +58,7 @@ function waitForGlobal(name, timeout = 10000) {
 }
 
 /**
- * Load gapi.client (no GIS — Supabase handles consent).
+ * Load gapi.client (no GIS — Google consent runs through our Worker OAuth flow).
  * Resolves when gapi.client.gmail is ready for use.
  */
 export async function initGoogleLibraries() {
@@ -68,58 +70,43 @@ export async function initGoogleLibraries() {
   gapiInited = true;
 }
 
+function tokenIsFresh() {
+  return !!cachedToken && Date.now() / 1000 < cachedExpiresAt - REFRESH_MARGIN_SECONDS;
+}
+
 /**
- * If a Supabase session already exists with a provider_token, set it on
- * gapi.client so Gmail calls work. Returns true if a token was attached.
+ * Ensure gapi has a fresh Google access token. Fetches from the Worker if the
+ * cached token is stale or missing. Returns true if a token is attached.
  */
-export async function attachSessionToGapi() {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.provider_token;
-  if (!token) {
-    gapi.client.setToken(null);
-    return false;
-  }
-  gapi.client.setToken({ access_token: token });
+export async function ensureGmailToken() {
+  if (tokenIsFresh() && gapi.client.getToken()) return true;
+  const { access_token, expires_at } = await getGmailToken();
+  cachedToken = access_token;
+  cachedExpiresAt = expires_at;
+  gapi.client.setToken({ access_token });
   return true;
 }
 
 /**
- * Kick off the OAuth flow. Browser navigates away; on return,
- * detectSessionInUrl handles the code exchange.
- */
-export async function signIn() {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      scopes: GMAIL_SCOPE,
-      // access_type=offline + prompt=consent ensures we get a refresh_token
-      // even on returning sign-ins, so silent provider_token refresh works.
-      queryParams: { access_type: 'offline', prompt: 'consent' },
-      redirectTo: window.location.origin,
-    },
-  });
-  if (error) throw error;
-}
-
-/**
- * Refresh the Supabase session, which also refreshes provider_token using
- * the stored Google refresh token. Pushes the new token into gapi.client.
- * Used as the 401 recovery path in api.js.
+ * Force a new access token from the Worker. Used as the 401 recovery path.
  */
 export async function refreshGoogleAccessToken() {
-  const { data, error } = await supabase.auth.refreshSession();
-  if (error || !data.session?.provider_token) {
-    throw new Error('failed to refresh google access token');
-  }
-  gapi.client.setToken({ access_token: data.session.provider_token });
+  cachedToken = null;
+  await ensureGmailToken();
 }
 
 /**
- * Sign out of Supabase and clear the gapi token.
+ * Sign out: clear our session cookie via the Worker, clear the local gapi
+ * token, drop the in-memory access token cache.
  */
 export async function signOut() {
-  await supabase.auth.signOut();
-  if (gapiInited && gapi.client.getToken()) {
-    gapi.client.setToken(null);
+  try {
+    await apiSignOut();
+  } finally {
+    cachedToken = null;
+    cachedExpiresAt = 0;
+    if (gapiInited && gapi.client.getToken()) {
+      gapi.client.setToken(null);
+    }
   }
 }

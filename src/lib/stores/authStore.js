@@ -1,10 +1,11 @@
 import { writable } from 'svelte/store';
 
 export const isAuthenticated = writable(false);
+export const userId = writable('');
 export const userEmail = writable('');
 
 /**
- * Entitlement state, sourced from GET /me.
+ * Entitlement state, sourced from GET /api/me.
  *
  *   paid       true when the user has an active entitlement row.
  *   loaded     true once /me has been called at least once for this session;

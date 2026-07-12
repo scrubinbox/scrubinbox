@@ -1,7 +1,7 @@
 <script>
   import { showMain } from '../stores/uiStore.js';
   import { isPaid } from '../stores/authStore.js';
-  import { createCheckoutSession } from '../supabase/api.js';
+  import { createCheckoutSession } from '../api.js';
   import { getErrorMessage } from '../errors.js';
 
   let redirecting = false;

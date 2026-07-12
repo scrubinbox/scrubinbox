@@ -45,12 +45,9 @@ jobs:
         run: npm test
 
       - name: Build (CI check)
-        # PRs and non-deploy runs only need to prove the build succeeds.
-        # VITE_ vars can be dummies here — the build inlines them, but the
-        # bundle is thrown away. Real values are injected on the deploy job.
-        env:
-          VITE_SUPABASE_URL: "https://ci-placeholder.supabase.co"
-          VITE_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder"
+        # PRs and non-deploy runs only need to prove the build succeeds. The
+        # client no longer needs any VITE_ auth secrets (roll-own OAuth flow
+        # runs entirely in the Worker) — nothing to inject here.
         run: npm run build
 
   deploy-staging:
@@ -61,9 +58,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
-    # Scopes the secrets below (CLOUDFLARE_*, VITE_SUPABASE_*) to the
-    # `staging` GitHub Environment. Same plain names as production — the
-    # environment binding is what selects the right values.
+    # Scopes CLOUDFLARE_* to the `staging` GitHub Environment. VITE_ auth
+    # secrets are gone with the roll-own OAuth flow — no per-env build
+    # secrets needed for the client bundle.
     environment:
       name: staging
       url: https://scrubinbox-staging.brian-e60.workers.dev
@@ -83,8 +80,6 @@ jobs:
 
       - name: Build (staging)
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           # Version stamp: first 7 chars of the commit SHA, so the app footer
           # in staging shows which build is live.
           VITE_APP_VERSION: staging-${{ github.sha }}

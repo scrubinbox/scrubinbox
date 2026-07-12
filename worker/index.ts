@@ -1,96 +1,180 @@
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
-import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { z } from 'zod'
+import {
+  db,
+  upsertUserByGoogleSub,
+  ensureTrialState,
+  getUserById,
+  getEntitlement,
+  getTrialState,
+  insertScanLog,
+  upsertEntitlement,
+} from './db'
+import { encryptRefreshToken, decryptRefreshToken } from './auth/crypto'
+import {
+  buildAuthUrl,
+  callbackUrlFor,
+  exchangeCode,
+  parseIdToken,
+  refreshAccessToken,
+} from './auth/google'
+import {
+  issueSession,
+  clearSession,
+  setOAuthState,
+  readOAuthState,
+  clearOAuthState,
+  requireSession,
+} from './auth/session'
 
 type Env = {
-  SUPABASE_URL: string
-  SUPABASE_PUBLISHABLE_KEY: string
-  SUPABASE_SECRET_KEY: string
+  DATABASE_URL: string
+  GOOGLE_CLIENT_ID: string
+  GOOGLE_CLIENT_SECRET: string
+  SESSION_SIGNING_SECRET: string
+  REFRESH_TOKEN_ENCRYPTION_KEY: string
   STRIPE_SECRET_KEY: string
   STRIPE_WEBHOOK_SECRET: string
   STRIPE_PRICE_ID: string
   ASSETS: { fetch: (req: Request) => Promise<Response> }
 }
 
-type AuthedVars = {
-  user: User
-  supabase: SupabaseClient
+type Vars = {
+  userId: string
 }
 
-const app = new Hono<{ Bindings: Env; Variables: AuthedVars }>()
+const app = new Hono<{ Bindings: Env; Variables: Vars }>()
 
-// Stripe SDK bound to fetch — required on Workers (default Node http agent
-// isn't available). constructEventAsync uses SubtleCrypto for signature
-// verification, also Workers-safe.
 function stripeClient(env: Env): Stripe {
   return new Stripe(env.STRIPE_SECRET_KEY, {
     httpClient: Stripe.createFetchHttpClient(),
   })
 }
 
-// --- Auth middleware ---
-// Constructs a Supabase client bound to the caller's JWT, then validates it.
-// Subsequent handlers can use c.var.supabase for RLS-scoped queries and
-// c.var.user for the verified user record.
-const requireAuth = createMiddleware<{ Bindings: Env; Variables: AuthedVars }>(
-  async (c, next) => {
-    const header = c.req.header('Authorization')
-    if (!header?.startsWith('Bearer ')) {
-      return c.json({ error: 'missing bearer token' }, 401)
-    }
-    const jwt = header.slice('Bearer '.length)
-
-    const supabase = createClient(c.env.SUPABASE_URL, c.env.SUPABASE_PUBLISHABLE_KEY, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
-
-    const { data, error } = await supabase.auth.getUser(jwt)
-    if (error || !data.user) {
-      return c.json({ error: 'invalid or expired token' }, 401)
-    }
-    c.set('user', data.user)
-    c.set('supabase', supabase)
-    await next()
-  },
+const authed = createMiddleware<{ Bindings: Env; Variables: Vars }>(
+  requireSession((c) => c.env.SESSION_SIGNING_SECRET),
 )
 
-// --- API routes ---
-const api = new Hono<{ Bindings: Env; Variables: AuthedVars }>()
+const api = new Hono<{ Bindings: Env; Variables: Vars }>()
 
 api.get('/health', (c) => c.json({ service: 'scrubinbox-api', ok: true }))
 
-api.get('/me', requireAuth, async (c) => {
-  const supabase = c.var.supabase
-  const userId = c.var.user.id
+// --- OAuth flow ---
 
-  const [entitlementRes, trialRes] = await Promise.all([
-    supabase
-      .from('entitlements')
-      .select('type, expires_at')
-      .eq('user_id', userId)
-      .maybeSingle(),
-    supabase
-      .from('trial_state')
-      .select('trial_used_at')
-      .eq('user_id', userId)
-      .maybeSingle(),
-  ])
+api.get('/auth/google/start', (c) => {
+  const state = crypto.randomUUID()
+  setOAuthState(c, state)
+  const url = buildAuthUrl(c.env.GOOGLE_CLIENT_ID, callbackUrlFor(c.req.raw), state)
+  return c.redirect(url, 302)
+})
 
-  if (entitlementRes.error) return c.json({ error: entitlementRes.error.message }, 500)
-  if (trialRes.error) return c.json({ error: trialRes.error.message }, 500)
+api.get('/auth/google/callback', async (c) => {
+  const code = c.req.query('code')
+  const state = c.req.query('state')
+  const cookieState = readOAuthState(c)
+  clearOAuthState(c)
 
-  const ent = entitlementRes.data
-  const paid =
-    !!ent && (ent.expires_at === null || new Date(ent.expires_at).getTime() > Date.now())
+  const oauthError = c.req.query('error')
+  if (oauthError) return c.redirect(`/?auth_error=${encodeURIComponent(oauthError)}`, 302)
+  if (!code || !state || !cookieState || state !== cookieState) {
+    return c.redirect('/?auth_error=bad_state', 302)
+  }
+
+  let tokens
+  try {
+    tokens = await exchangeCode(
+      c.env.GOOGLE_CLIENT_ID,
+      c.env.GOOGLE_CLIENT_SECRET,
+      code,
+      callbackUrlFor(c.req.raw),
+    )
+  } catch (err) {
+    return c.redirect(`/?auth_error=${encodeURIComponent(`exchange_failed: ${(err as Error).message}`)}`, 302)
+  }
+
+  const claims = parseIdToken(tokens.id_token)
+  const encryptedRefreshToken = tokens.refresh_token
+    ? await encryptRefreshToken(tokens.refresh_token, c.env.REFRESH_TOKEN_ENCRYPTION_KEY)
+    : null
+
+  const sql = db(c.env.DATABASE_URL)
+  const user = await upsertUserByGoogleSub(sql, {
+    googleSub: claims.sub,
+    email: claims.email,
+    encryptedRefreshToken,
+  })
+  await ensureTrialState(sql, user.id)
+
+  await issueSession(c, user.id, c.env.SESSION_SIGNING_SECRET)
+  return c.redirect('/', 302)
+})
+
+api.post('/auth/signout', authed, (c) => {
+  clearSession(c)
+  return c.json({ ok: true })
+})
+
+// --- Gmail access token ---
+// Mints a fresh Google access token for the signed-in user by refreshing the
+// stored refresh token. Client caches the returned expires_at and re-fetches
+// when <5 min remaining. Gmail scope stays entirely client-side after this —
+// we never see the email content.
+api.get('/auth/gmail-token', authed, async (c) => {
+  const sql = db(c.env.DATABASE_URL)
+  const user = await getUserById(sql, c.var.userId)
+  if (!user) return c.json({ error: 'user not found' }, 401)
+  if (!user.encrypted_refresh_token) {
+    return c.json({ error: 'no refresh token — please sign in again' }, 401)
+  }
+
+  const refreshToken = await decryptRefreshToken(
+    user.encrypted_refresh_token,
+    c.env.REFRESH_TOKEN_ENCRYPTION_KEY,
+  )
+
+  let refreshed
+  try {
+    refreshed = await refreshAccessToken(
+      c.env.GOOGLE_CLIENT_ID,
+      c.env.GOOGLE_CLIENT_SECRET,
+      refreshToken,
+    )
+  } catch (err) {
+    return c.json({ error: `refresh failed: ${(err as Error).message}` }, 502)
+  }
 
   return c.json({
+    access_token: refreshed.access_token,
+    expires_at: Math.floor(Date.now() / 1000) + refreshed.expires_in,
+    scope: refreshed.scope,
+  })
+})
+
+// --- App API ---
+
+api.get('/me', authed, async (c) => {
+  const sql = db(c.env.DATABASE_URL)
+  const [user, entitlement, trial] = await Promise.all([
+    getUserById(sql, c.var.userId),
+    getEntitlement(sql, c.var.userId),
+    getTrialState(sql, c.var.userId),
+  ])
+  if (!user) return c.json({ error: 'user not found' }, 401)
+
+  const paid =
+    !!entitlement &&
+    (entitlement.expires_at === null ||
+      new Date(entitlement.expires_at).getTime() > Date.now())
+
+  return c.json({
+    id: user.id,
+    email: user.email,
     paid,
-    type: ent?.type ?? null,
-    expires_at: ent?.expires_at ?? null,
-    trial_used: !!trialRes.data?.trial_used_at,
+    type: entitlement?.type ?? null,
+    expires_at: entitlement?.expires_at ?? null,
+    trial_used: !!trial?.trial_used_at,
   })
 })
 
@@ -99,69 +183,50 @@ const scanLogSchema = z.object({
   threads_trashed: z.number().int().nonnegative(),
 })
 
-api.post('/scan-log', requireAuth, async (c) => {
+api.post('/scan-log', authed, async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = scanLogSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ error: 'invalid body', issues: parsed.error.issues }, 400)
   }
-
-  const { error } = await c.var.supabase
-    .from('scan_logs')
-    .insert({
-      user_id: c.var.user.id,
-      threads_scanned: parsed.data.threads_scanned,
-      threads_trashed: parsed.data.threads_trashed,
-    })
-
-  if (error) return c.json({ error: error.message }, 500)
+  const sql = db(c.env.DATABASE_URL)
+  await insertScanLog(sql, {
+    userId: c.var.userId,
+    threadsScanned: parsed.data.threads_scanned,
+    threadsTrashed: parsed.data.threads_trashed,
+  })
   return c.json({ ok: true }, 201)
 })
 
-// --- POST /api/create-checkout-session ---
-// Creates a Stripe hosted checkout session for the ScrubInbox Lifetime price.
-// The user's Supabase id rides in session.metadata.user_id — the webhook uses
-// it to link the resulting entitlement row back to auth.users.
-api.post('/create-checkout-session', requireAuth, async (c) => {
+api.post('/create-checkout-session', authed, async (c) => {
+  const sql = db(c.env.DATABASE_URL)
+  const user = await getUserById(sql, c.var.userId)
+  if (!user) return c.json({ error: 'user not found' }, 401)
+
   const stripe = stripeClient(c.env)
   const origin = new URL(c.req.url).origin
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     line_items: [{ price: c.env.STRIPE_PRICE_ID, quantity: 1 }],
-    // {CHECKOUT_SESSION_ID} is a Stripe template — replaced with the actual id
-    // when Stripe redirects the customer to success_url. /welcome uses it to
-    // correlate the pending purchase with the eventual webhook.
     success_url: `${origin}/welcome?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/`,
-    customer_email: c.var.user.email ?? undefined,
-    // Force customer creation so the webhook always receives a customer id.
-    // Default 'if_required' skips customer creation for one-time payments,
-    // which surfaced as a NOT-NULL violation on the entitlements insert until
-    // migration 20260704232014 dropped that constraint.
+    customer_email: user.email,
     customer_creation: 'always',
-    metadata: { user_id: c.var.user.id },
-    // Automatic tax handled by Managed Payments — we don't set tax settings here.
+    metadata: { user_id: user.id },
   })
 
-  if (!session.url) {
-    return c.json({ error: 'stripe returned no checkout url' }, 502)
-  }
+  if (!session.url) return c.json({ error: 'stripe returned no checkout url' }, 502)
   return c.json({ url: session.url })
 })
 
-// --- POST /api/webhooks/stripe ---
-// Verifies the Stripe-Signature header, then handles checkout.session.completed
-// by upserting an entitlement row via the service-role client (bypasses RLS —
-// no user JWT on the webhook request). Idempotent on (user_id) so Stripe
-// retries collapse to a no-op after the first success.
+// --- Stripe webhook ---
+// Verifies HMAC via constructEventAsync (Workers-safe SubtleCrypto). Idempotent
+// on user_id — Stripe retries collapse to no-ops.
 api.post('/webhooks/stripe', async (c) => {
   const signature = c.req.header('stripe-signature')
   if (!signature) return c.json({ error: 'missing stripe-signature header' }, 400)
 
-  // constructEventAsync verifies the HMAC-SHA256 signature against the raw body
-  // bytes and the timestamp Stripe includes in the header. Any tampering, wrong
-  // secret, or expired timestamp throws — caught below.
   const rawBody = await c.req.text()
   const stripe = stripeClient(c.env)
   let event: Stripe.Event
@@ -176,50 +241,41 @@ api.post('/webhooks/stripe', async (c) => {
   }
 
   if (event.type !== 'checkout.session.completed') {
-    // We're only subscribed to checkout.session.completed for MVP; any other
-    // event here means the endpoint config drifted. Ack so Stripe doesn't retry.
     return c.json({ received: true, note: `ignored event ${event.type}` })
   }
 
   const session = event.data.object
   const userId = session.metadata?.user_id
-  if (!userId) {
-    return c.json({ error: 'checkout session missing metadata.user_id' }, 400)
-  }
+  if (!userId) return c.json({ error: 'checkout session missing metadata.user_id' }, 400)
   if (session.payment_status !== 'paid') {
-    // async payment methods can complete-then-fail; ignore until actually paid.
     return c.json({ received: true, note: `payment_status=${session.payment_status}` })
   }
 
-  const admin = createClient(c.env.SUPABASE_URL, c.env.SUPABASE_SECRET_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  const stripeCustomerId =
+    typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null)
+  if (!stripeCustomerId) {
+    return c.json({ error: 'checkout session missing customer id' }, 400)
+  }
 
-  const { error } = await admin.from('entitlements').upsert(
-    {
-      user_id: userId,
+  const sql = db(c.env.DATABASE_URL)
+  try {
+    await upsertEntitlement(sql, {
+      userId,
       type: 'lifetime',
-      stripe_session_id: session.id,
-      stripe_customer_id:
-        typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null),
-      early_adopter: true,
-    },
-    { onConflict: 'user_id' },
-  )
-
-  if (error) {
-    // Return 500 so Stripe retries; upsert on user_id makes retries no-ops.
-    return c.json({ error: error.message }, 500)
+      stripeSessionId: session.id,
+      stripeCustomerId,
+      earlyAdopter: true,
+    })
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500)
   }
   return c.json({ received: true })
 })
 
 app.route('/api', api)
 
-// --- Static assets fallback ---
-// Everything that's not /api/* falls through to the assets binding (the
-// built Svelte SPA in ./dist). The assets config handles SPA fallback —
-// unknown paths return index.html so client-side routing works.
+// Static assets fallback: everything not /api/* hits the built Svelte SPA.
+// SPA fallback (unknown paths → index.html) is configured on the assets binding.
 app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
 
 export default app
