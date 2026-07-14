@@ -60,5 +60,12 @@ coverage/
 # Personal/operational notes that must not be published.
 productization.md
 
+# CASA prep documents (self-assessment, architecture diagrams, retention
+# policy, scope justification, etc). These describe our internal security
+# posture in detail for the assessor and would give attackers a map of our
+# defense surface if published. Kept locally in this directory + shared
+# directly with TAC Security.
+docs/casa/
+
 # Claude Code local state (settings, memory, subagents, plans)
 .claude/
