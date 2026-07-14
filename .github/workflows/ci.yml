@@ -96,7 +96,7 @@ jobs:
         # -c wrangler.toml pins the root config; without it @cloudflare/vite-plugin
         # would redirect wrangler to dist/scrubinbox/wrangler.json which flattens
         # the [env.*] blocks and would deploy to the wrong Worker name.
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
