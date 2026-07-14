@@ -1,0 +1,39 @@
+# Dependabot config — auto-opens PRs for outdated / vulnerable dependencies.
+#
+# Scoped to weekly to keep noise low for a small team of one. Security-relevant
+# updates (any severity) fire regardless of schedule — GitHub's automatic
+# security-update feature is separate and always on.
+
+version: 2
+updates:
+  # npm — the app's runtime + dev deps
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Group non-security patch + minor updates into one PR per week to avoid
+    # a flood of tiny bumps. Security updates stay individual so they get
+    # reviewed on their own merits.
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions used by ci.yml + release.yml — pin at major-tag level, but
+  # let Dependabot bump to newer majors when they release.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: "ci"
