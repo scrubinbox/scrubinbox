@@ -91,7 +91,8 @@ api.get('/auth/google/callback', async (c) => {
       callbackUrlFor(c.req.raw),
     )
   } catch (err) {
-    return c.redirect(`/?auth_error=${encodeURIComponent(`exchange_failed: ${(err as Error).message}`)}`, 302)
+    console.error('oauth code exchange failed:', (err as Error).message)
+    return c.redirect('/?auth_error=exchange_failed', 302)
   }
 
   const claims = parseIdToken(tokens.id_token)
@@ -142,7 +143,8 @@ api.get('/auth/gmail-token', authed, async (c) => {
       refreshToken,
     )
   } catch (err) {
-    return c.json({ error: `refresh failed: ${(err as Error).message}` }, 502)
+    console.error('gmail token refresh failed:', (err as Error).message)
+    return c.json({ error: 'refresh_failed' }, 502)
   }
 
   return c.json({
@@ -237,7 +239,8 @@ api.post('/webhooks/stripe', async (c) => {
       c.env.STRIPE_WEBHOOK_SECRET,
     )
   } catch (err) {
-    return c.json({ error: `signature verification failed: ${(err as Error).message}` }, 400)
+    console.error('stripe webhook signature verification failed:', (err as Error).message)
+    return c.json({ error: 'signature_verification_failed' }, 400)
   }
 
   if (event.type !== 'checkout.session.completed') {
@@ -267,7 +270,8 @@ api.post('/webhooks/stripe', async (c) => {
       earlyAdopter: true,
     })
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 500)
+    console.error('entitlement upsert failed:', (err as Error).message)
+    return c.json({ error: 'entitlement_upsert_failed' }, 500)
   }
   return c.json({ received: true })
 })
