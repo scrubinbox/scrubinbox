@@ -26,6 +26,18 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # Major-version ignores where our ecosystem can't take the bump yet.
+    # Revisit each entry periodically; delete when the upstream plugin
+    # supports the new major.
+    ignore:
+      # vite ↔ @sveltejs/vite-plugin-svelte move in lockstep. vite 8 requires
+      # vite-plugin-svelte 7, and vite-plugin-svelte 7 requires vite 8 —
+      # chicken-and-egg from Dependabot's perspective. When both are ready
+      # we bump them together in a manual PR.
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sveltejs/vite-plugin-svelte"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions used by ci.yml + release.yml — pin at major-tag level, but
   # let Dependabot bump to newer majors when they release.
