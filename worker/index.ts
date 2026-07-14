@@ -28,6 +28,7 @@ import {
   clearOAuthState,
   requireSession,
 } from './auth/session'
+import { securityHeaders } from './security'
 
 type Env = {
   DATABASE_URL: string
@@ -46,6 +47,11 @@ type Vars = {
 }
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>()
+
+// Apply CSP + HSTS + X-Frame-Options + friends to every response, including
+// static assets served by env.ASSETS. See worker/security.ts for the policy
+// rationale.
+app.use('*', securityHeaders())
 
 function stripeClient(env: Env): Stripe {
   return new Stripe(env.STRIPE_SECRET_KEY, {
