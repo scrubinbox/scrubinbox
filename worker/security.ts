@@ -2,7 +2,7 @@ import type { MiddlewareHandler } from 'hono'
 
 // Content Security Policy for both the SPA and /api/* responses.
 //
-// Directive rationale (see docs/casa/asvs-l1-self-assessment.md V9.2):
+// Directive rationale:
 // - script-src: 'self' for our SPA bundle + apis.google.com for gapi.client
 //   which we load dynamically in src/lib/gmail/auth.js. static.cloudflareinsights.com
 //   serves the Cloudflare Web Analytics beacon, injected by CF on every page.
