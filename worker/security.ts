@@ -13,9 +13,12 @@ import type { MiddlewareHandler } from 'hono'
 //   refactor for another day.
 // - font-src: fonts.gstatic.com serves the font files themselves.
 // - connect-src: gmail.googleapis.com for direct client→Gmail API calls
-//   (email content never traverses our servers, per principle #1) plus
-//   www.googleapis.com for gapi's discovery-doc fetch. Own origin covers
-//   /api/*. cloudflareinsights.com is the beacon endpoint for CF Web Analytics.
+//   (email content never traverses our servers, per principle #1),
+//   www.googleapis.com for gapi's discovery-doc fetch, and apis.google.com
+//   for gapi's own gen_204 telemetry pings (blocking them doesn't break
+//   anything but floods the console with CSP violations during scans).
+//   Own origin covers /api/*. cloudflareinsights.com is the beacon endpoint
+//   for CF Web Analytics.
 // - frame-src: gapi.client uses per-service RPC iframes hosted on
 //   content-<service>.googleapis.com. content.googleapis.com is the generic
 //   host used during gapi bootstrap (blocking it hangs the sign-in dialog);
@@ -33,7 +36,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data:",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://gmail.googleapis.com https://www.googleapis.com https://cloudflareinsights.com",
+  "connect-src 'self' https://gmail.googleapis.com https://www.googleapis.com https://apis.google.com https://cloudflareinsights.com",
   "frame-src https://accounts.google.com https://content.googleapis.com https://content-gmail.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
