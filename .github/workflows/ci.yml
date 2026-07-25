@@ -40,12 +40,10 @@ jobs:
 
       - name: Dependency vulnerability scan
         # Fails on any high or critical vulnerability in production deps.
-        # --omit=dev because our ASVS L1 story is "we don't ship
-        # known-vulnerable code to prod" — dev-tool CVEs (wrangler,
-        # miniflare, vite-plugin, etc.) never reach the Worker runtime,
-        # so they're a Dependabot triage concern, not a CI shipping gate.
-        # Moderate and low don't block CI either way — Dependabot picks
-        # those up asynchronously.
+        # --omit=dev because dev-tool CVEs (wrangler, miniflare, vite-plugin,
+        # etc.) never reach the Worker runtime — they're a Dependabot triage
+        # concern, not a CI shipping gate. Moderate and low don't block CI
+        # either way; Dependabot picks those up asynchronously.
         run: npm audit --audit-level=high --omit=dev
 
       - name: Typecheck worker
