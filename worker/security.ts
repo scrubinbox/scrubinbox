@@ -12,20 +12,23 @@ import type { MiddlewareHandler } from 'hono'
 //   (progress bar); tighter alternatives (CSS custom property) are a
 //   refactor for another day.
 // - font-src: fonts.gstatic.com serves the font files themselves.
-// - connect-src: gmail.googleapis.com for direct client→Gmail API calls
-//   (email content never traverses our servers, per principle #1),
-//   www.googleapis.com for gapi's discovery-doc fetch, and apis.google.com
-//   for gapi's own gen_204 telemetry pings (blocking them doesn't break
-//   anything but floods the console with CSP violations during scans).
-//   Own origin covers /api/*. cloudflareinsights.com is the beacon endpoint
-//   for CF Web Analytics.
+// - connect-src: *.googleapis.com covers the Google API surface — gmail
+//   (direct client→Gmail API calls; email content never traverses our
+//   servers, per principle #1), www (gapi's discovery-doc fetch), and any
+//   future service subdomain. apis.google.com is separate — it's under
+//   google.com and gapi.client pings apis.google.com/js/gen_204 for its
+//   own telemetry. Own origin covers /api/*. cloudflareinsights.com is
+//   the beacon endpoint for CF Web Analytics.
 // - frame-src: gapi.client uses per-service RPC iframes hosted on
-//   content-<service>.googleapis.com. content.googleapis.com is the generic
-//   host used during gapi bootstrap (blocking it hangs the sign-in dialog);
-//   content-gmail.googleapis.com is the Gmail-specific host used by
-//   gapi.client.gmail calls like users.labels.list (blocking it makes label
-//   loading and all Gmail reads hang silently). accounts.google.com covers
-//   any Google Identity Services iframe surface.
+//   content-<service>.googleapis.com (blocking any of them hangs the
+//   related API calls silently). Wildcard covers all current + future
+//   service subdomains. accounts.google.com covers any Google Identity
+//   Services iframe surface (separate host tree under google.com).
+//
+// Wildcards are only used within a single trusted-vendor domain tree
+// (googleapis.com — entirely Google-operated). Everything else is
+// enumerated. We deliberately do not use *.google.com; that tree covers
+// far more than what we depend on.
 // - frame-ancestors 'none' + X-Frame-Options: DENY: clickjacking defense.
 // - form-action 'self': block any embedded form from POSTing off-origin.
 // - object-src 'none': no plugins, ever.
@@ -36,8 +39,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data:",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://gmail.googleapis.com https://www.googleapis.com https://apis.google.com https://cloudflareinsights.com",
-  "frame-src https://accounts.google.com https://content.googleapis.com https://content-gmail.googleapis.com",
+  "connect-src 'self' https://*.googleapis.com https://apis.google.com https://cloudflareinsights.com",
+  "frame-src https://accounts.google.com https://*.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
