@@ -39,11 +39,14 @@ jobs:
         run: npm ci
 
       - name: Dependency vulnerability scan
-        # Fails on any high or critical vulnerability in the tree. Moderate
-        # and low don't block CI — Dependabot picks those up asynchronously.
-        # Rationale: our sub-processor + ASVS L1 story assumes we don't ship
-        # known-vulnerable code to prod; this is the build-time gate.
-        run: npm audit --audit-level=high
+        # Fails on any high or critical vulnerability in production deps.
+        # --omit=dev because our ASVS L1 story is "we don't ship
+        # known-vulnerable code to prod" — dev-tool CVEs (wrangler,
+        # miniflare, vite-plugin, etc.) never reach the Worker runtime,
+        # so they're a Dependabot triage concern, not a CI shipping gate.
+        # Moderate and low don't block CI either way — Dependabot picks
+        # those up asynchronously.
+        run: npm audit --audit-level=high --omit=dev
 
       - name: Typecheck worker
         run: npm run typecheck:worker

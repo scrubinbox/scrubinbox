@@ -4,7 +4,8 @@ import type { MiddlewareHandler } from 'hono'
 //
 // Directive rationale (see docs/casa/asvs-l1-self-assessment.md V9.2):
 // - script-src: 'self' for our SPA bundle + apis.google.com for gapi.client
-//   which we load dynamically in src/lib/gmail/auth.js.
+//   which we load dynamically in src/lib/gmail/auth.js. static.cloudflareinsights.com
+//   serves the Cloudflare Web Analytics beacon, injected by CF on every page.
 // - style-src: 'self' for the built bundle + fonts.googleapis.com for the
 //   Instrument Sans stylesheet linked in index.html. 'unsafe-inline' is
 //   required for one dynamic style="width: {N}%" in ProgressSection.svelte
@@ -14,18 +15,23 @@ import type { MiddlewareHandler } from 'hono'
 // - connect-src: gmail.googleapis.com for direct client→Gmail API calls
 //   (email content never traverses our servers, per principle #1) plus
 //   www.googleapis.com for gapi's discovery-doc fetch. Own origin covers
-//   /api/*.
+//   /api/*. cloudflareinsights.com is the beacon endpoint for CF Web Analytics.
+// - frame-src: content.googleapis.com hosts the hidden gapi RPC iframe used
+//   for the client→Gmail token bridge; without this the "Loading" spinner
+//   on the Connect-Gmail dialog hangs forever. accounts.google.com covers
+//   any Google Identity Services iframe surface.
 // - frame-ancestors 'none' + X-Frame-Options: DENY: clickjacking defense.
 // - form-action 'self': block any embedded form from POSTing off-origin.
 // - object-src 'none': no plugins, ever.
 // - base-uri 'self': prevent <base> tag hijacking.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://apis.google.com",
+  "script-src 'self' https://apis.google.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data:",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://gmail.googleapis.com https://www.googleapis.com",
+  "connect-src 'self' https://gmail.googleapis.com https://www.googleapis.com https://cloudflareinsights.com",
+  "frame-src https://accounts.google.com https://content.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -39,9 +45,11 @@ const HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  // Deny features we don't use. interest-cohort opts us out of Google FLoC.
+  // Deny features we don't use. (FLoC's `interest-cohort` token was removed
+  // when Chrome killed FLoC in 2023; keeping it produces a console warning
+  // on every page load with no security benefit.)
   'Permissions-Policy':
-    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
 }
 
 // Applies our security response headers to every response, whether it came
