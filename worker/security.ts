@@ -12,23 +12,21 @@ import type { MiddlewareHandler } from 'hono'
 //   (progress bar); tighter alternatives (CSS custom property) are a
 //   refactor for another day.
 // - font-src: fonts.gstatic.com serves the font files themselves.
-// - connect-src: *.googleapis.com covers the Google API surface — gmail
-//   (direct client→Gmail API calls; email content never traverses our
-//   servers, per principle #1), www (gapi's discovery-doc fetch), and any
-//   future service subdomain. apis.google.com is separate — it's under
-//   google.com and gapi.client pings apis.google.com/js/gen_204 for its
-//   own telemetry. Own origin covers /api/*. cloudflareinsights.com is
-//   the beacon endpoint for CF Web Analytics.
-// - frame-src: gapi.client uses per-service RPC iframes hosted on
-//   content-<service>.googleapis.com (blocking any of them hangs the
-//   related API calls silently). Wildcard covers all current + future
-//   service subdomains. accounts.google.com covers any Google Identity
-//   Services iframe surface (separate host tree under google.com).
+// - connect-src / frame-src: wildcards cover Google's operational domains.
+//   *.googleapis.com covers the API surface (gmail, www, content-<svc>,
+//   etc.). *.google.com covers ancillary hosts gapi + GIS libraries reach
+//   for telemetry (apis.google.com/js/gen_204), identity/consent
+//   (accounts.google.com), and other Google-operated properties. We use
+//   wildcards rather than an explicit host list because the previous list
+//   broke on every new Google subdomain we didn't know about, and Google
+//   is a single trusted vendor for these directives — the trust boundary
+//   is the same either way.
+//   Own origin covers /api/*. cloudflareinsights.com is the beacon endpoint
+//   for CF Web Analytics.
 //
-// Wildcards are only used within a single trusted-vendor domain tree
-// (googleapis.com — entirely Google-operated). Everything else is
-// enumerated. We deliberately do not use *.google.com; that tree covers
-// far more than what we depend on.
+// script-src stays STRICT (explicit hosts, no wildcards) — that's the
+// directive where XSS lives, and the load-time hosts genuinely don't
+// change often.
 // - frame-ancestors 'none' + X-Frame-Options: DENY: clickjacking defense.
 // - form-action 'self': block any embedded form from POSTing off-origin.
 // - object-src 'none': no plugins, ever.
@@ -39,8 +37,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data:",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://*.googleapis.com https://apis.google.com https://cloudflareinsights.com",
-  "frame-src https://accounts.google.com https://*.googleapis.com",
+  "connect-src 'self' https://*.googleapis.com https://*.google.com https://cloudflareinsights.com",
+  "frame-src https://*.googleapis.com https://*.google.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
