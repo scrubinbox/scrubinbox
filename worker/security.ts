@@ -16,9 +16,12 @@ import type { MiddlewareHandler } from 'hono'
 //   (email content never traverses our servers, per principle #1) plus
 //   www.googleapis.com for gapi's discovery-doc fetch. Own origin covers
 //   /api/*. cloudflareinsights.com is the beacon endpoint for CF Web Analytics.
-// - frame-src: content.googleapis.com hosts the hidden gapi RPC iframe used
-//   for the client→Gmail token bridge; without this the "Loading" spinner
-//   on the Connect-Gmail dialog hangs forever. accounts.google.com covers
+// - frame-src: gapi.client uses per-service RPC iframes hosted on
+//   content-<service>.googleapis.com. content.googleapis.com is the generic
+//   host used during gapi bootstrap (blocking it hangs the sign-in dialog);
+//   content-gmail.googleapis.com is the Gmail-specific host used by
+//   gapi.client.gmail calls like users.labels.list (blocking it makes label
+//   loading and all Gmail reads hang silently). accounts.google.com covers
 //   any Google Identity Services iframe surface.
 // - frame-ancestors 'none' + X-Frame-Options: DENY: clickjacking defense.
 // - form-action 'self': block any embedded form from POSTing off-origin.
@@ -31,7 +34,7 @@ const CSP = [
   "img-src 'self' data:",
   "font-src 'self' https://fonts.gstatic.com",
   "connect-src 'self' https://gmail.googleapis.com https://www.googleapis.com https://cloudflareinsights.com",
-  "frame-src https://accounts.google.com https://content.googleapis.com",
+  "frame-src https://accounts.google.com https://content.googleapis.com https://content-gmail.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
