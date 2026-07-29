@@ -6,12 +6,16 @@ import type { MiddlewareHandler } from 'hono'
 // - script-src: 'self' for our SPA bundle + apis.google.com for gapi.client
 //   which we load dynamically in src/lib/gmail/auth.js. static.cloudflareinsights.com
 //   serves the Cloudflare Web Analytics beacon, injected by CF on every page.
-// - style-src: 'self' for the built bundle + fonts.googleapis.com for the
-//   Instrument Sans stylesheet linked in index.html. 'unsafe-inline' is
-//   required for one dynamic style="width: {N}%" in ProgressSection.svelte
-//   (progress bar); tighter alternatives (CSS custom property) are a
-//   refactor for another day.
-// - font-src: fonts.gstatic.com serves the font files themselves.
+// - style-src: 'self' for the built bundle. 'unsafe-inline' is required
+//   for one dynamic style="width: {N}%" in ProgressSection.svelte (progress
+//   bar); tighter alternatives (CSS custom property) are a refactor for
+//   another day.
+// - font-src: 'self' — Instrument Sans is self-hosted via Fontsource
+//   (@fontsource/instrument-sans in src/app.css), bundled into /assets/
+//   by Vite. Previously used fonts.gstatic.com but the third-party dep +
+//   inability to attach SRI to the dynamic CSS from fonts.googleapis.com
+//   was a TAC finding; removing the hosts silenced the finding + trimmed
+//   two vendors from the CSP.
 // - connect-src / frame-src: wildcards cover Google's operational domains.
 //   *.googleapis.com covers the API surface (gmail, www, content-<svc>,
 //   etc.). *.google.com covers ancillary hosts gapi + GIS libraries reach
@@ -34,9 +38,9 @@ import type { MiddlewareHandler } from 'hono'
 const CSP = [
   "default-src 'self'",
   "script-src 'self' https://apis.google.com https://static.cloudflareinsights.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
-  "font-src 'self' https://fonts.gstatic.com",
+  "font-src 'self'",
   "connect-src 'self' https://*.googleapis.com https://*.google.com https://cloudflareinsights.com",
   "frame-src https://*.googleapis.com https://*.google.com",
   "frame-ancestors 'none'",
