@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Instrument Sans @font-face declarations live in src/main.js as JS
+   imports of @fontsource/instrument-sans, so Vite's CSS URL rewriter
+   resolves the woff2 references and emits the font files to /assets/
+   with content-hashed names. Doing this via @import in this file
+   silently drops the URL rewrites (Tailwind v4 + Vite quirk). */
+
 @theme {
   --color-sage-50: #F4F8F5;
   --color-sage-100: #E8F0E9;
