@@ -105,7 +105,10 @@ export function securityHeaders(): MiddlewareHandler {
     for (const [name, value] of Object.entries(HEADERS)) {
       merged.set(name, value)
     }
-    merged.set('Cache-Control', cacheControlFor(new URL(c.req.url).pathname))
+    const cc = cacheControlFor(new URL(c.req.url).pathname)
+    merged.set('Cache-Control', cc)
+    merged.set('X-Debug-CC', cc)
+    merged.set('X-Debug-Path', new URL(c.req.url).pathname)
     c.res = new Response(original.body, {
       status: original.status,
       statusText: original.statusText,
