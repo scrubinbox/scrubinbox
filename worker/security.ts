@@ -52,11 +52,43 @@ const HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
+  // Same-origin blocks cross-origin fetches from reading our responses,
+  // hardening against Spectre-class side-channel attacks.
+  'Cross-Origin-Resource-Policy': 'same-origin',
   // Deny features we don't use. (FLoC's `interest-cohort` token was removed
   // when Chrome killed FLoC in 2023; keeping it produces a console warning
   // on every page load with no security benefit.)
   'Permissions-Policy':
     'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+}
+
+// Cache-Control policy by response type.
+//
+// The Cloudflare Workers ASSETS binding defaults every static file to
+// `public, max-age=0, must-revalidate`, and Hono JSON handlers set no
+// Cache-Control at all. Both are wrong for different reasons: the assets
+// default keeps hashed JS/CSS bundles from being cached at all (defeating
+// the whole point of content-hashed filenames), and no header on an API
+// response means intermediate caches decide for themselves.
+//
+// Policy:
+// - /api/* — user data (session state, entitlements, Gmail tokens). Must
+//   never be cached anywhere. Even a shared cache holding the response for
+//   milliseconds could serve it to the wrong user on a subsequent hit.
+// - /assets/* — Vite output. Filenames are content-hashed (e.g.
+//   `index-ClVo4JdV.js`), so the file at that URL never changes; cache
+//   forever with `immutable` so browsers don't send If-None-Match.
+// - /favicon/* — icons. Not hashed, so short cache; 1 day is fine.
+// - /robots.txt, /sitemap.xml — public metadata. 1 hour cache.
+// - Everything else (HTML entry points like /, /welcome, /purchase) —
+//   `no-cache, must-revalidate` so browsers re-check on every navigation;
+//   the served HTML embeds asset URLs that must reflect the current deploy.
+function cacheControlFor(path: string): string {
+  if (path.startsWith('/api/')) return 'no-store'
+  if (path.startsWith('/assets/')) return 'public, max-age=31536000, immutable'
+  if (path.startsWith('/favicon/')) return 'public, max-age=86400'
+  if (path === '/robots.txt' || path === '/sitemap.xml') return 'public, max-age=3600'
+  return 'no-cache, must-revalidate'
 }
 
 // Applies our security response headers to every response, whether it came
@@ -73,6 +105,7 @@ export function securityHeaders(): MiddlewareHandler {
     for (const [name, value] of Object.entries(HEADERS)) {
       merged.set(name, value)
     }
+    merged.set('Cache-Control', cacheControlFor(new URL(c.req.url).pathname))
     c.res = new Response(original.body, {
       status: original.status,
       statusText: original.statusText,
