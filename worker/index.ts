@@ -28,7 +28,7 @@ import {
   clearOAuthState,
   requireSession,
 } from './auth/session'
-import { securityHeaders } from './security'
+import { blockLegacyMethods, securityHeaders } from './security'
 
 type Env = {
   DATABASE_URL: string
@@ -47,6 +47,10 @@ type Vars = {
 }
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>()
+
+// TRACE/TRACK 405 short-circuit runs BEFORE securityHeaders so those
+// requests never touch ASSETS or the Hono router — see worker/security.ts.
+app.use('*', blockLegacyMethods())
 
 // Apply CSP + HSTS + X-Frame-Options + friends to every response, including
 // static assets served by env.ASSETS. See worker/security.ts for the policy

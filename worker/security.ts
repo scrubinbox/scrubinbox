@@ -59,11 +59,31 @@ const HEADERS: Record<string, string> = {
   // Same-origin blocks cross-origin fetches from reading our responses,
   // hardening against Spectre-class side-channel attacks.
   'Cross-Origin-Resource-Policy': 'same-origin',
+  // Isolates our top-level browsing context from cross-origin popups.
+  // Safe for our flow: we do full-page OAuth redirect (no popups), gapi's
+  // token bridge is an iframe (COOP only applies to top-level windows).
+  // 'same-origin-allow-popups' is weaker per TAC's remedy.
+  'Cross-Origin-Opener-Policy': 'same-origin',
   // Deny features we don't use. (FLoC's `interest-cohort` token was removed
   // when Chrome killed FLoC in 2023; keeping it produces a console warning
   // on every page load with no security benefit.)
   'Permissions-Policy':
     'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+}
+
+// Reject TRACE and TRACK explicitly. These legacy HTTP methods are never
+// used by browsers, and their responses reveal proxy/server topology,
+// which triggered the "Proxy Disclosure" finding in the TAC revalidation
+// scan. Returning 405 early — before ASSETS or any Hono handler — means
+// the response body carries no fingerprint. `Allow` lists only the
+// methods our public surface actually accepts.
+export function blockLegacyMethods(): MiddlewareHandler {
+  return async (c, next) => {
+    if (c.req.method === 'TRACE' || c.req.method === 'TRACK') {
+      return c.text('Method Not Allowed', 405, { Allow: 'GET, POST' })
+    }
+    await next()
+  }
 }
 
 // Cache-Control policy by response type.
