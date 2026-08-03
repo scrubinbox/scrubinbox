@@ -1,6 +1,10 @@
 import { SignJWT, jwtVerify } from 'jose'
 
-const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+// 24 hours. The session JWT is stateless (no server-side revocation store)
+// so per OWASP ASVS L1 2.2.3 / CASA AL1 SAQ, its TTL must not exceed 24h.
+// If we later add server-side revocation (a sessions table in Neon, checked
+// per request), the requirement no longer applies and we can extend this.
+const SESSION_TTL_SECONDS = 24 * 60 * 60
 
 function keyFromSecret(secret: string): Uint8Array {
   return new TextEncoder().encode(secret)
