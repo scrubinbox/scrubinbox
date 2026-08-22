@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import Stripe from 'stripe'
 import { z } from 'zod'
@@ -29,6 +29,16 @@ import {
   requireSession,
 } from './auth/session'
 import { blockLegacyMethods, securityHeaders } from './security'
+import {
+  GmailProxyError,
+  TRASH_BATCH_SIZE,
+  getGmailAccessToken,
+  getInboxTotal,
+  getPaidStatus,
+  getScanPage,
+  listLabels,
+  trashThreads,
+} from './gmail'
 
 type Env = {
   DATABASE_URL: string
@@ -175,10 +185,9 @@ api.get('/me', authed, async (c) => {
   ])
   if (!user) return c.json({ error: 'user not found' }, 401)
 
-  const paid =
-    !!entitlement &&
-    (entitlement.expires_at === null ||
-      new Date(entitlement.expires_at).getTime() > Date.now())
+  // Paid derivation goes through the same helper /api/trash uses so the
+  // paywall trust boundary can never drift from what the client sees.
+  const paid = await getPaidStatus(sql, c.var.userId)
 
   return c.json({
     id: user.id,
@@ -189,6 +198,100 @@ api.get('/me', authed, async (c) => {
     trial_used: !!trial?.trial_used_at,
   })
 })
+
+// --- Gmail proxy ---
+// The Worker owns the Google access token; the client never sees one. All
+// Gmail calls go through /api/labels, /api/scan/*, and /api/trash so the
+// paywall enforcement lives at the trust boundary.
+
+api.get('/labels', authed, async (c) => {
+  const sql = db(c.env.DATABASE_URL)
+  try {
+    const accessToken = await getGmailAccessToken(c.env, sql, c.var.userId)
+    const result = await listLabels(accessToken)
+    return c.json({ labels: result.labels ?? [] })
+  } catch (err) {
+    return gmailErrorResponse(c, err)
+  }
+})
+
+api.get('/scan/inbox-info', authed, async (c) => {
+  const includeArchived = c.req.query('includeArchived') === 'true'
+  const sql = db(c.env.DATABASE_URL)
+  try {
+    const accessToken = await getGmailAccessToken(c.env, sql, c.var.userId)
+    const threadsTotal = await getInboxTotal(accessToken, includeArchived)
+    return c.json({ threadsTotal })
+  } catch (err) {
+    return gmailErrorResponse(c, err)
+  }
+})
+
+const scanPageSchema = z.object({
+  pageToken: z.string().nullable().optional(),
+  config: z.object({
+    includeArchived: z.boolean().optional(),
+  }).optional(),
+})
+
+api.post('/scan/page', authed, async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const parsed = scanPageSchema.safeParse(body ?? {})
+  if (!parsed.success) {
+    return c.json({ error: 'invalid body', issues: parsed.error.issues }, 400)
+  }
+  const sql = db(c.env.DATABASE_URL)
+  try {
+    const accessToken = await getGmailAccessToken(c.env, sql, c.var.userId)
+    const page = await getScanPage(accessToken, {
+      pageToken: parsed.data.pageToken ?? null,
+      includeArchived: parsed.data.config?.includeArchived ?? false,
+    })
+    return c.json(page)
+  } catch (err) {
+    return gmailErrorResponse(c, err)
+  }
+})
+
+const trashSchema = z.object({
+  threadIds: z.array(z.string().min(1)).min(1).max(TRASH_BATCH_SIZE),
+  permanent: z.boolean().optional(),
+})
+
+api.post('/trash', authed, async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const parsed = trashSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'invalid body', issues: parsed.error.issues }, 400)
+  }
+  const sql = db(c.env.DATABASE_URL)
+  const paid = await getPaidStatus(sql, c.var.userId)
+  if (!paid) return c.json({ error: 'not_paid' }, 403)
+
+  try {
+    const accessToken = await getGmailAccessToken(c.env, sql, c.var.userId)
+    const results = await trashThreads(
+      accessToken,
+      parsed.data.threadIds,
+      parsed.data.permanent ?? false,
+    )
+    return c.json({ results })
+  } catch (err) {
+    return gmailErrorResponse(c, err)
+  }
+})
+
+function gmailErrorResponse(
+  c: Context<{ Bindings: Env; Variables: Vars }>,
+  err: unknown,
+) {
+  if (err instanceof GmailProxyError) {
+    console.error(`gmail proxy ${err.code}:`, err.message)
+    return c.json({ error: err.code }, err.status as 400 | 401 | 502)
+  }
+  console.error('gmail proxy unexpected error:', (err as Error).message)
+  return c.json({ error: 'internal_error' }, 500)
+}
 
 const scanLogSchema = z.object({
   threads_scanned: z.number().int().nonnegative(),
