@@ -7,10 +7,10 @@
  * want: the user can pay and come back to intact scan results, but a fresh
  * tab hours later starts clean rather than showing stale data.
  *
- * Email content itself is not scanned or stored — Gmail's threads.get with
- * format='metadata' returns headers only. sessionStorage keeps that metadata
- * on the user's own machine, never sent to our servers. Consistent with the
- * "email content never leaves your browser" architectural principle.
+ * Email bodies are never in the payload — the Worker fetches Gmail with
+ * format=metadata, so only From, Subject, and label IDs make it to the
+ * browser in the first place. That projected metadata lives here in
+ * sessionStorage and is never persisted server-side.
  */
 
 import { CollectionResult } from './models/index.js';

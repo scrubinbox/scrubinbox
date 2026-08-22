@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ScrubInbox — Declutter Your Gmail</title>
-  <meta name="description" content="A free, open source tool to mass unsubscribe and clean up your Gmail inbox. Runs entirely in your browser — your data never leaves your device.">
+  <meta name="description" content="A free, open source tool to mass unsubscribe and clean up your Gmail inbox. Email bodies stay in your browser; the backend proxies Gmail metadata in memory and stores nothing of your mail.">
   <link rel="icon" type="image/svg+xml" href="/favicon/scrubinbox-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
@@ -557,7 +557,7 @@
   <section class="hero">
     <div class="hero-badge">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-      100% client-side &middot; No servers
+      Open source &middot; Auditable end to end
     </div>
     <h1>Take back your Gmail inbox</h1>
     <p>ScrubInbox scans your inbox for subscriptions and junk, then lets you bulk delete them in one click. Free, open source, and completely private.</p>
@@ -574,7 +574,7 @@
     <div class="trust-inner">
       <div class="trust-item">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-        No data leaves your browser
+        Email bodies stay in your browser
       </div>
       <div class="trust-item">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
@@ -619,20 +619,20 @@
       <div class="privacy-grid">
         <div class="privacy-content">
           <div class="section-label">Privacy</div>
-          <h2>Your email stays on your device</h2>
-          <p>ScrubInbox is a static web app that runs entirely in your browser. There is no backend server, no database, and no analytics. Your email content is never transmitted anywhere except directly between your browser and Gmail's API.</p>
+          <h2>Trust via auditability, not just claims</h2>
+          <p>ScrubInbox's Cloudflare Worker proxies Gmail on your behalf so we can enforce the paid tier at the trust boundary. Email bodies never leave your browser &mdash; the Worker requests <code>format=metadata</code>, so only From, Subject, and label IDs cross the wire. Nothing about your mail is stored: only your account, entitlement, an encrypted refresh token, and running scan/trash counts.</p>
           <ul class="privacy-checks">
             <li>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              No server-side code, no backend, no database
+              Email bodies stay in your browser
             </li>
             <li>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              Email data goes directly from Gmail API to your browser
+              Sender and subject headers transit the Worker in memory, then vanish
             </li>
             <li>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              OAuth tokens stay in memory and are never persisted
+              Google refresh token is AES-256-GCM encrypted at rest; the Worker is the only holder of the key
             </li>
             <li>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -647,12 +647,26 @@
             </div>
             <div>
               <div class="arch-label">Your Browser</div>
-              <div class="arch-desc">ScrubInbox runs here &mdash; all processing happens locally</div>
+              <div class="arch-desc">Renders the app; email bodies never leave here</div>
             </div>
           </div>
           <div class="arch-arrow">
             <span class="arch-line"></span>
-            Direct connection
+            Session cookie only
+            <span class="arch-line"></span>
+          </div>
+          <div class="arch-card">
+            <div class="arch-icon server">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+            </div>
+            <div>
+              <div class="arch-label">Our Worker</div>
+              <div class="arch-desc">Enforces the paywall; proxies Gmail with format=metadata</div>
+            </div>
+          </div>
+          <div class="arch-arrow">
+            <span class="arch-line"></span>
+            OAuth + metadata calls
             <span class="arch-line"></span>
           </div>
           <div class="arch-card">
@@ -661,21 +675,7 @@
             </div>
             <div>
               <div class="arch-label">Gmail API</div>
-              <div class="arch-desc">Accessed directly via Google's official OAuth</div>
-            </div>
-          </div>
-          <div class="arch-arrow blocked">
-            <span class="arch-line"></span>
-            No third-party server
-            <span class="arch-line"></span>
-          </div>
-          <div class="arch-card" style="opacity: 0.4; border-style: dashed;">
-            <div class="arch-icon server">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
-            </div>
-            <div>
-              <div class="arch-label">Our Server</div>
-              <div class="arch-desc">Doesn't exist &mdash; we have no backend</div>
+              <div class="arch-desc">Google's official OAuth-authenticated API</div>
             </div>
           </div>
         </div>

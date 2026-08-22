@@ -123,7 +123,7 @@
         </div>
         <h2 class="text-lg font-bold text-sage-800 mb-1">Connect your Gmail</h2>
         <p class="text-sm text-sage-400 max-w-sm mx-auto">
-          Sign in to scan your inbox. Your email content stays in your browser and is never sent to any server.
+          Sign in to scan your inbox. Email bodies stay in your browser; only sender and subject headers transit our server, in memory, and nothing is stored.
         </p>
       </div>
 

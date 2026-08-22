@@ -1,9 +1,13 @@
 # `worker/` — Cloudflare Worker backend
 
 Single Workers + Assets deploy: this Worker serves the built Svelte SPA from
-its asset binding and routes `/api/*` to Hono handlers. Email content never
-touches the backend — only identity, entitlement, Google refresh tokens
-(AES-GCM-encrypted at rest), and scan-log counts.
+its asset binding, routes `/api/*` to Hono handlers, and proxies every
+Gmail API call so the client never receives a Google access token. Email
+bodies never touch the backend (Gmail is fetched with `format=metadata`);
+sender + subject headers and label IDs transit in Worker memory for the
+duration of each request and are never persisted. Stored state is only
+identity, entitlement, Google refresh tokens (AES-GCM-encrypted at rest),
+and scan-log counts.
 
 ## Endpoints
 
@@ -13,11 +17,19 @@ touches the backend — only identity, entitlement, Google refresh tokens
 | `GET` | `/api/auth/google/start` | none | Redirect to Google OAuth (sets `oauth_state` cookie) |
 | `GET` | `/api/auth/google/callback` | Google | Exchange code, upsert user, set `sb_session` cookie |
 | `POST` | `/api/auth/signout` | session | Clear the session cookie |
-| `GET` | `/api/auth/gmail-token` | session | Return `{access_token, expires_at}` — Google access token refreshed from the encrypted refresh token in Neon |
 | `GET` | `/api/me` | session | `{id, email, paid, type, expires_at, trial_used}` |
+| `GET` | `/api/labels` | session | Gmail `users.labels.list` proxy for the filter UI |
+| `GET` | `/api/scan/inbox-info` | session | `{threadsTotal}` for scan progress (query: `includeArchived=true|false`) |
+| `POST` | `/api/scan/page` | session | One page of thread metadata (`{threads, nextPageToken}`); body `{pageToken?, config: {includeArchived}}` |
+| `POST` | `/api/trash` | session + paid | Trash or delete a batch of threads; body `{threadIds (≤49), permanent}`. Returns 403 `not_paid` if entitlement is missing |
 | `POST` | `/api/scan-log` | session | Append to `scan_logs` (`user_id` bound from session) |
 | `POST` | `/api/create-checkout-session` | session | Create Stripe hosted-checkout session |
 | `POST` | `/api/webhooks/stripe` | Stripe signature | Upsert `entitlements` on `checkout.session.completed` |
+
+The Gmail proxy endpoints all sit under Cloudflare's Free-plan
+per-request caps: 50 subrequests (scan/page = 1 list + up to 49 gets;
+trash = up to 49 delete calls) and 6 concurrent outbound connections
+(both fan-outs use a concurrency-6 pool).
 
 ## Local development
 

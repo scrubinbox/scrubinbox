@@ -1,6 +1,6 @@
 # ScrubInbox
 
-Declutter your Gmail inbox by sender domain. Scan, group thousands of newsletters and receipts by who sent them, then bulk-move to trash. Email content stays in your browser.
+Declutter your Gmail inbox by sender domain. Scan, group thousands of newsletters and receipts by who sent them, then bulk-move to trash. Email bodies stay in your browser — the server only sees sender and subject headers in-flight and stores nothing of it.
 
 [![CI](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml/badge.svg)](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -64,10 +64,10 @@ Client-side filtering against the actual `labelIds` returned by `threads.get` is
 
 ## Privacy positioning
 
-- **Email content stays in your browser.** All Gmail API calls go directly from your browser to Google. No sender addresses, subject lines, or thread bodies are ever transmitted to any ScrubInbox-controlled backend.
-- **The backend stores only what's needed to run the paid service:** your account (Supabase user ID + Google email), your entitlement (paid or not), and running scan/trash counts. No email metadata.
-- **Sub-processors are named in the** [Privacy Policy](https://scrubinbox.com/privacy.html): Supabase (auth + DB), Stripe (payments as Merchant of Record), Cloudflare (hosting), Google (OAuth + Gmail API).
-- **Self-hosted mode has no backend at all** — you're only touching your own Google account. (Reminder: the mode toggle isn't shipped yet; see above.)
+- **Email bodies stay in your browser.** Gmail API calls run through our Cloudflare Worker so we can enforce the paywall at the trust boundary. What transits the Worker is thread metadata (From, Subject, label IDs) — held in Worker memory for the duration of the request and never persisted.
+- **The backend stores only what's needed to run the paid service:** your account (Google user ID + email), your entitlement (paid or not), an AES-256-GCM-encrypted copy of your Google refresh token, and running scan/trash counts.
+- **Sub-processors are named in the** [Privacy Policy](https://scrubinbox.com/privacy.html): Neon (Postgres), Stripe (payments as Merchant of Record), Cloudflare (hosting), Google (OAuth + Gmail API).
+- **Trust the auditability, not our claims.** The Worker source is open. If you'd rather not send anything through our backend at all, self-host. (Reminder: the self-host toggle that skips the auth/paywall/proxy layer isn't shipped yet; see above.)
 
 ## Development
 
