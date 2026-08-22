@@ -3,7 +3,7 @@
  *
  * The Worker fans out per-thread trash/delete calls concurrently (see
  * /api/trash). We batch here to stay within the Worker's per-request
- * subrequest budget: TRASH_BATCH_SIZE = 49 matches worker/gmail.ts.
+ * subrequest budget: TRASH_BATCH_SIZE = 45 matches worker/gmail.ts.
  */
 
 import { trashBatch } from './api.js';
@@ -13,7 +13,7 @@ import { CleanupStats } from '../models/index.js';
 // either waste subrequest budget (too small) or fail the Zod schema (too
 // large) — hardcoding both sides is intentional; the Worker is the source
 // of truth and the client stays under it.
-const TRASH_BATCH_SIZE = 49;
+const TRASH_BATCH_SIZE = 45;
 
 export class DomainCleaner {
   constructor(config, progressCallback = null) {

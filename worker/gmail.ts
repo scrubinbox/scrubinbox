@@ -15,10 +15,13 @@ const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1/users/me'
 // Cloudflare's per-request cap on concurrent outbound connections.
 const CONCURRENCY = 6
 
-// One scan page: 1 threads.list + up to 49 threads.get = 50 subrequests
-// (Cloudflare's per-request cap). Trash uses the same 49 ceiling.
-const SCAN_PAGE_SIZE = 49
-export const TRASH_BATCH_SIZE = 49
+// Cloudflare Free plan caps a single Worker invocation at 50 subrequests.
+// Each of these endpoints incurs 3 overhead subrequests before any Gmail
+// call: 1 Neon getUserById + 1 Google OAuth refresh + 1 Gmail list/entitlement.
+// That leaves 47 for the actual Gmail work; we hold to 45 for a safety
+// buffer against any future overhead we haven't accounted for.
+const SCAN_PAGE_SIZE = 45
+export const TRASH_BATCH_SIZE = 45
 
 export type ProjectedThread = {
   id: string
