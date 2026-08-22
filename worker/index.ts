@@ -12,13 +12,12 @@ import {
   insertScanLog,
   upsertEntitlement,
 } from './db'
-import { encryptRefreshToken, decryptRefreshToken } from './auth/crypto'
+import { encryptRefreshToken } from './auth/crypto'
 import {
   buildAuthUrl,
   callbackUrlFor,
   exchangeCode,
   parseIdToken,
-  refreshAccessToken,
 } from './auth/google'
 import {
   issueSession,
@@ -135,43 +134,6 @@ api.get('/auth/google/callback', async (c) => {
 api.post('/auth/signout', authed, (c) => {
   clearSession(c)
   return c.json({ ok: true })
-})
-
-// --- Gmail access token ---
-// Mints a fresh Google access token for the signed-in user by refreshing the
-// stored refresh token. Client caches the returned expires_at and re-fetches
-// when <5 min remaining. Gmail scope stays entirely client-side after this —
-// we never see the email content.
-api.get('/auth/gmail-token', authed, async (c) => {
-  const sql = db(c.env.DATABASE_URL)
-  const user = await getUserById(sql, c.var.userId)
-  if (!user) return c.json({ error: 'user not found' }, 401)
-  if (!user.encrypted_refresh_token) {
-    return c.json({ error: 'no refresh token — please sign in again' }, 401)
-  }
-
-  const refreshToken = await decryptRefreshToken(
-    user.encrypted_refresh_token,
-    c.env.REFRESH_TOKEN_ENCRYPTION_KEY,
-  )
-
-  let refreshed
-  try {
-    refreshed = await refreshAccessToken(
-      c.env.GOOGLE_CLIENT_ID,
-      c.env.GOOGLE_CLIENT_SECRET,
-      refreshToken,
-    )
-  } catch (err) {
-    console.error('gmail token refresh failed:', (err as Error).message)
-    return c.json({ error: 'refresh_failed' }, 502)
-  }
-
-  return c.json({
-    access_token: refreshed.access_token,
-    expires_at: Math.floor(Date.now() / 1000) + refreshed.expires_in,
-    scope: refreshed.scope,
-  })
 })
 
 // --- App API ---
