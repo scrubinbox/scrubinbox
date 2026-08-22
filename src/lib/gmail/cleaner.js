@@ -1,12 +1,19 @@
 /**
- * Domain Cleaner - Handles email cleanup for selected domains
+ * Domain Cleaner — trashes selected threads via the Worker proxy.
+ *
+ * The Worker fans out per-thread trash/delete calls concurrently (see
+ * /api/trash). We batch here to stay within the Worker's per-request
+ * subrequest budget: TRASH_BATCH_SIZE = 49 matches worker/gmail.ts.
  */
 
-import { trashThread, deleteThread } from './api.js';
+import { trashBatch } from './api.js';
 import { CleanupStats } from '../models/index.js';
-import { API_CONCURRENCY } from '../constants.js';
-import { asyncPool } from '../asyncPool.js';
 
+// Kept in sync with TRASH_BATCH_SIZE in worker/gmail.ts. A mismatch would
+// either waste subrequest budget (too small) or fail the Zod schema (too
+// large) — hardcoding both sides is intentional; the Worker is the source
+// of truth and the client stays under it.
+const TRASH_BATCH_SIZE = 49;
 
 export class DomainCleaner {
   constructor(config, progressCallback = null) {
@@ -28,7 +35,7 @@ export class DomainCleaner {
 
   async cleanup(threads) {
     if (!threads || threads.length === 0) {
-      return DomainCleaner.buildStats(0, 0, 0, 0);
+      return DomainCleaner.buildStats(0, 0, 0);
     }
 
     // Initialize pollable progress
@@ -46,21 +53,40 @@ export class DomainCleaner {
     let threadsDeleted = 0;
     let threadsFailed = 0;
 
-    await asyncPool(threads, API_CONCURRENCY, async (thread) => {
-      if (this.interrupted) return;
+    for (let i = 0; i < threads.length; i += TRASH_BATCH_SIZE) {
+      if (this.interrupted) break;
 
-      const success = await this._removeThread(thread.thread_id);
+      const batch = threads.slice(i, i + TRASH_BATCH_SIZE);
+      const ids = batch.map((t) => t.thread_id);
 
-      if (success) {
-        threadsDeleted += 1;
-      } else {
-        threadsFailed += 1;
+      let results;
+      try {
+        const resp = await trashBatch(ids, this.config.permanentDelete);
+        results = resp.results ?? [];
+      } catch (error) {
+        // Server-side failure (e.g. 403 not_paid, 401, 502) — mark the
+        // whole batch as failed and stop; retrying deeper batches when the
+        // proxy itself is refusing is guaranteed to fail the same way.
+        console.error('trashBatch failed:', error);
+        threadsFailed += batch.length;
+        totalProcessed += batch.length;
+        this.progress.processed = totalProcessed;
+        this.progress.deleted = threadsDeleted;
+        break;
       }
 
-      totalProcessed += 1;
-      this.progress.processed = totalProcessed;
-      this.progress.deleted = threadsDeleted;
-    });
+      for (const r of results) {
+        if (r.success) {
+          threadsDeleted += 1;
+        } else {
+          threadsFailed += 1;
+          console.error(`Error removing thread ${r.id}:`, r.error);
+        }
+        totalProcessed += 1;
+        this.progress.processed = totalProcessed;
+        this.progress.deleted = threadsDeleted;
+      }
+    }
 
     this.progress.status = 'completed';
 
@@ -68,22 +94,6 @@ export class DomainCleaner {
     await this._reportProgress('cleanup_completed', result);
 
     return result;
-  }
-
-  // === Thread Processing ===
-
-  async _removeThread(threadId) {
-    try {
-      if (this.config.permanentDelete) {
-        await deleteThread(threadId);
-      } else {
-        await trashThread(threadId);
-      }
-      return true;
-    } catch (error) {
-      console.error(`Error removing thread ${threadId}:`, error);
-      return false;
-    }
   }
 
   // === Progress ===
