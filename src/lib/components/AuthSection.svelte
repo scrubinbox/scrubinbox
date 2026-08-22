@@ -4,9 +4,8 @@
   import { collectionResult, domains } from '../stores/collectionStore.js';
   import { selectedThreadIds, expandedDomains } from '../stores/cleanupStore.js';
   import { showDomains } from '../stores/uiStore.js';
-  import { getMe } from '../api.js';
+  import { getMe, signOut } from '../api.js';
   import { signIn } from '../auth.js';
-  import { initGoogleLibraries, ensureGmailToken, signOut } from '../gmail/auth.js';
   import { getErrorMessage } from '../errors.js';
   import { loadScanState, clearScanState } from '../persistScan.js';
 
@@ -52,13 +51,6 @@
       clearAuthState();
       return;
     }
-    try {
-      await ensureGmailToken();
-    } catch (err) {
-      authError = `Couldn't attach Gmail token: ${getErrorMessage(err)}`;
-      clearAuthState();
-      return;
-    }
     $userId = me.id;
     $userEmail = me.email ?? '';
     $isPaid = !!me.paid;
@@ -69,11 +61,11 @@
 
   onMount(async () => {
     try {
-      await initGoogleLibraries();
-      authReady = true;
       await loadSession();
     } catch (error) {
-      authError = `Failed to load Google libraries: ${getErrorMessage(error)}`;
+      authError = `Failed to load session: ${getErrorMessage(error)}`;
+    } finally {
+      authReady = true;
     }
   });
 

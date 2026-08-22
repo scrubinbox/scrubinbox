@@ -3,46 +3,36 @@ import type { MiddlewareHandler } from 'hono'
 // Content Security Policy for both the SPA and /api/* responses.
 //
 // Directive rationale:
-// - script-src: 'self' for our SPA bundle + apis.google.com for gapi.client
-//   which we load dynamically in src/lib/gmail/auth.js. static.cloudflareinsights.com
-//   serves the Cloudflare Web Analytics beacon, injected by CF on every page.
+// - script-src: 'self' for our SPA bundle. static.cloudflareinsights.com
+//   serves the Cloudflare Web Analytics beacon, injected by CF on every
+//   page. No third-party script hosts — gapi.client was removed when
+//   Gmail API calls moved to the Worker.
 // - style-src: 'self' for the built bundle. 'unsafe-inline' is required
 //   for one dynamic style="width: {N}%" in ProgressSection.svelte (progress
 //   bar); tighter alternatives (CSS custom property) are a refactor for
 //   another day.
 // - font-src: 'self' — Instrument Sans is self-hosted via Fontsource
 //   (@fontsource/instrument-sans in src/app.css), bundled into /assets/
-//   by Vite. Previously used fonts.gstatic.com but the third-party dep +
-//   inability to attach SRI to the dynamic CSS from fonts.googleapis.com
-//   was a TAC finding; removing the hosts silenced the finding + trimmed
-//   two vendors from the CSP.
-// - connect-src / frame-src: wildcards cover Google's operational domains.
-//   *.googleapis.com covers the API surface (gmail, www, content-<svc>,
-//   etc.). *.google.com covers ancillary hosts gapi + GIS libraries reach
-//   for telemetry (apis.google.com/js/gen_204), identity/consent
-//   (accounts.google.com), and other Google-operated properties. We use
-//   wildcards rather than an explicit host list because the previous list
-//   broke on every new Google subdomain we didn't know about, and Google
-//   is a single trusted vendor for these directives — the trust boundary
-//   is the same either way.
-//   Own origin covers /api/*. cloudflareinsights.com is the beacon endpoint
-//   for CF Web Analytics.
+//   by Vite.
+// - connect-src: 'self' covers all /api/* traffic — Gmail calls are proxied
+//   through the Worker so the browser never speaks to *.googleapis.com
+//   anymore. accounts.google.com is only visited via full-page redirect
+//   for OAuth (top-level navigation, not fetch), so no allowance needed.
+//   cloudflareinsights.com is the beacon endpoint for CF Web Analytics.
+// - frame-src: no third-party frames used anywhere.
 //
-// script-src stays STRICT (explicit hosts, no wildcards) — that's the
-// directive where XSS lives, and the load-time hosts genuinely don't
-// change often.
 // - frame-ancestors 'none' + X-Frame-Options: DENY: clickjacking defense.
 // - form-action 'self': block any embedded form from POSTing off-origin.
 // - object-src 'none': no plugins, ever.
 // - base-uri 'self': prevent <base> tag hijacking.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://apis.google.com https://static.cloudflareinsights.com",
+  "script-src 'self' https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "connect-src 'self' https://*.googleapis.com https://*.google.com https://cloudflareinsights.com",
-  "frame-src https://*.googleapis.com https://*.google.com",
+  "connect-src 'self' https://cloudflareinsights.com",
+  "frame-src 'none'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

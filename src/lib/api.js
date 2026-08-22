@@ -53,16 +53,3 @@ export function createCheckoutSession() {
 export function signOut() {
   return request('/auth/signout', { method: 'POST' });
 }
-
-/**
- * Mints a fresh Google access token for Gmail API calls, refreshed by the
- * Worker from the encrypted refresh token in Neon. Returns
- * { access_token, expires_at (unix seconds), scope }.
- *
- * Dead once the gapi bootstrap is removed — no in-tree caller uses the
- * returned token anymore, but kept for one commit so the server endpoint
- * removal (next commit) is reviewable in isolation.
- */
-export function getGmailToken() {
-  return request('/auth/gmail-token');
-}
