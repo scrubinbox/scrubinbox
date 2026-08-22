@@ -12,15 +12,12 @@ import { getUserById, getEntitlement, type Sql } from './db'
 
 const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1/users/me'
 
-// Cloudflare's per-request cap on concurrent outbound connections. Every
-// concurrent Gmail call we issue counts against this, so 6 is the ceiling.
-const GMAIL_CONCURRENCY = 6
+// Cloudflare's per-request cap on concurrent outbound connections.
+const CONCURRENCY = 6
 
-// One page of scan work is bounded by Cloudflare's 50-subrequest cap:
-// 1 threads.list + up to 49 threads.get = 50 total.
-export const SCAN_PAGE_SIZE = 49
-
-// Same cap applies to trash: up to 49 threads.trash (or .delete) per batch.
+// One scan page: 1 threads.list + up to 49 threads.get = 50 subrequests
+// (Cloudflare's per-request cap). Trash uses the same 49 ceiling.
+const SCAN_PAGE_SIZE = 49
 export const TRASH_BATCH_SIZE = 49
 
 export type ProjectedThread = {
@@ -29,17 +26,6 @@ export type ProjectedThread = {
   subject: string
   labelIds: string[]
   messageCount: number
-}
-
-export type ScanPage = {
-  threads: ProjectedThread[]
-  nextPageToken: string | null
-}
-
-export type TrashResult = {
-  id: string
-  success: boolean
-  error?: string
 }
 
 type Env = {
@@ -59,9 +45,8 @@ export class GmailProxyError extends Error {
   }
 }
 
-// Refresh Google's OAuth refresh token into a fresh access token. Every
-// Gmail-touching endpoint calls this once at the top; the token is only
-// held in Worker memory for the duration of that request.
+// Refresh Google's stored refresh token into a fresh access token. Only
+// held in Worker memory for the duration of the current request.
 export async function getGmailAccessToken(
   env: Env,
   sql: Sql,
@@ -70,27 +55,26 @@ export async function getGmailAccessToken(
   const user = await getUserById(sql, userId)
   if (!user) throw new GmailProxyError(401, 'user_not_found', 'user not found')
   if (!user.encrypted_refresh_token) {
-    throw new GmailProxyError(401, 'no_refresh_token', 'no refresh token — please sign in again')
+    throw new GmailProxyError(401, 'no_refresh_token', 'sign in again')
   }
   const refreshToken = await decryptRefreshToken(
     user.encrypted_refresh_token,
     env.REFRESH_TOKEN_ENCRYPTION_KEY,
   )
   try {
-    const refreshed = await refreshAccessToken(
+    const { access_token } = await refreshAccessToken(
       env.GOOGLE_CLIENT_ID,
       env.GOOGLE_CLIENT_SECRET,
       refreshToken,
     )
-    return refreshed.access_token
+    return access_token
   } catch (err) {
     throw new GmailProxyError(502, 'refresh_failed', (err as Error).message)
   }
 }
 
-// Same paid derivation as GET /api/me. Extracted so /api/trash and /api/me
-// stay in lockstep — the trash endpoint is the trust boundary for the
-// paywall, so this must not drift.
+// Shared paid-status derivation. /api/trash and /api/me both call this so
+// the paywall trust boundary can't drift from what the client sees.
 export async function getPaidStatus(sql: Sql, userId: string): Promise<boolean> {
   const entitlement = await getEntitlement(sql, userId)
   if (!entitlement) return false
@@ -98,21 +82,20 @@ export async function getPaidStatus(sql: Sql, userId: string): Promise<boolean> 
   return new Date(entitlement.expires_at).getTime() > Date.now()
 }
 
-// Adapted from src/lib/asyncPool.js. Bounded concurrency for Gmail calls
-// so we never exceed Cloudflare's 6-connection cap.
-export async function pool<T, U>(
+// Bounded-concurrency fan-out. Workers pull from a shared index; single-
+// threaded JS makes `i++` atomic.
+async function pool<T, U>(
   items: T[],
-  concurrency: number,
-  fn: (item: T, index: number) => Promise<U>,
+  fn: (item: T) => Promise<U>,
 ): Promise<U[]> {
   const results: U[] = new Array(items.length)
   let index = 0
   const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
+    { length: Math.min(CONCURRENCY, items.length) },
     async () => {
       while (index < items.length) {
         const i = index++
-        results[i] = await fn(items[i], i)
+        results[i] = await fn(items[i])
       }
     },
   )
@@ -125,43 +108,31 @@ async function gmailFetch(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const res = await fetch(`${GMAIL_API}${path}`, {
+  return fetch(`${GMAIL_API}${path}`, {
     ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      ...(init.headers ?? {}),
-    },
+    headers: { Authorization: `Bearer ${accessToken}`, ...(init.headers ?? {}) },
   })
-  return res
 }
 
-async function gmailJson<T>(
-  accessToken: string,
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const res = await gmailFetch(accessToken, path, init)
+async function gmailJson<T>(accessToken: string, path: string): Promise<T> {
+  const res = await gmailFetch(accessToken, path)
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new GmailProxyError(502, 'gmail_error', `gmail ${path} ${res.status}: ${text}`)
+    throw new GmailProxyError(502, 'gmail_error', `${path} ${res.status}: ${text}`)
   }
   return res.json() as Promise<T>
 }
 
-type LabelInfo = { id: string; name: string; type?: string; threadsTotal?: number }
-type LabelsList = { labels?: LabelInfo[] }
-type ProfileInfo = { emailAddress: string; threadsTotal?: number }
-type ThreadsList = { threads?: { id: string }[]; nextPageToken?: string }
-type RawHeader = { name: string; value: string }
-type RawMessage = { id?: string; labelIds?: string[]; payload?: { headers?: RawHeader[] } }
-type RawThread = { id: string; labelIds?: string[]; messages?: RawMessage[] }
+type LabelRow = { id: string; name: string; type?: string; threadsTotal?: number }
 
-export function listLabels(accessToken: string): Promise<LabelsList> {
-  return gmailJson<LabelsList>(accessToken, '/labels')
+export function listLabels(
+  accessToken: string,
+): Promise<{ labels?: LabelRow[] }> {
+  return gmailJson(accessToken, '/labels')
 }
 
-async function getLabelThreadsTotal(accessToken: string, id: string): Promise<number> {
-  const label = await gmailJson<LabelInfo>(accessToken, `/labels/${encodeURIComponent(id)}`)
+async function labelThreadsTotal(accessToken: string, id: string): Promise<number> {
+  const label = await gmailJson<LabelRow>(accessToken, `/labels/${encodeURIComponent(id)}`)
   return label.threadsTotal ?? 0
 }
 
@@ -169,92 +140,81 @@ export async function getInboxTotal(
   accessToken: string,
   includeArchived: boolean,
 ): Promise<number> {
-  if (!includeArchived) {
-    return getLabelThreadsTotal(accessToken, 'INBOX')
-  }
+  if (!includeArchived) return labelThreadsTotal(accessToken, 'INBOX')
   const [profile, trash, spam] = await Promise.all([
-    gmailJson<ProfileInfo>(accessToken, '/profile'),
-    getLabelThreadsTotal(accessToken, 'TRASH'),
-    getLabelThreadsTotal(accessToken, 'SPAM'),
+    gmailJson<{ threadsTotal?: number }>(accessToken, '/profile'),
+    labelThreadsTotal(accessToken, 'TRASH'),
+    labelThreadsTotal(accessToken, 'SPAM'),
   ])
   return Math.max((profile.threadsTotal ?? 0) - trash - spam, 0)
 }
 
-function getHeader(headers: RawHeader[] | undefined, name: string): string {
-  if (!headers) return ''
-  const found = headers.find((h) => h.name === name)
-  return found?.value ?? ''
-}
-
-function projectThread(raw: RawThread): ProjectedThread {
-  const messages = raw.messages ?? []
-  const firstMessage = messages[0]
-  const headers = firstMessage?.payload?.headers
-  const threadLabelIds = raw.labelIds ?? []
-  const firstMsgLabelIds = firstMessage?.labelIds ?? []
-  const labelIds = [...new Set([...threadLabelIds, ...firstMsgLabelIds])]
-  return {
-    id: raw.id,
-    from: getHeader(headers, 'From'),
-    subject: getHeader(headers, 'Subject'),
-    labelIds,
-    messageCount: messages.length,
-  }
-}
-
-function buildQuery(includeArchived: boolean): string {
-  return includeArchived ? '-in:trash -in:spam' : 'in:inbox'
+type RawThread = {
+  id: string
+  labelIds?: string[]
+  messages?: {
+    labelIds?: string[]
+    payload?: { headers?: { name: string; value: string }[] }
+  }[]
 }
 
 export async function getScanPage(
   accessToken: string,
   args: { pageToken: string | null; includeArchived: boolean },
-): Promise<ScanPage> {
-  const params = new URLSearchParams({
+): Promise<{ threads: ProjectedThread[]; nextPageToken: string | null }> {
+  const listParams = new URLSearchParams({
     maxResults: String(SCAN_PAGE_SIZE),
-    q: buildQuery(args.includeArchived),
+    q: args.includeArchived ? '-in:trash -in:spam' : 'in:inbox',
   })
-  if (args.pageToken) params.set('pageToken', args.pageToken)
+  if (args.pageToken) listParams.set('pageToken', args.pageToken)
 
-  const list = await gmailJson<ThreadsList>(accessToken, `/threads?${params.toString()}`)
+  const list = await gmailJson<{
+    threads?: { id: string }[]
+    nextPageToken?: string
+  }>(accessToken, `/threads?${listParams.toString()}`)
   const threadIds = (list.threads ?? []).map((t) => t.id)
 
-  const metaParams = new URLSearchParams({ format: 'metadata' })
-  metaParams.append('metadataHeaders', 'From')
-  metaParams.append('metadataHeaders', 'Subject')
+  // format=metadata + metadataHeaders keeps the response small: no body,
+  // no attachment payloads. Only From and Subject headers plus label IDs.
+  const metaQs =
+    'format=metadata&metadataHeaders=From&metadataHeaders=Subject'
 
-  const projected = await pool(threadIds, GMAIL_CONCURRENCY, async (id) => {
+  const threads = await pool(threadIds, async (id) => {
     const raw = await gmailJson<RawThread>(
       accessToken,
-      `/threads/${encodeURIComponent(id)}?${metaParams.toString()}`,
+      `/threads/${encodeURIComponent(id)}?${metaQs}`,
     )
-    return projectThread(raw)
+    const first = raw.messages?.[0]
+    const headers = first?.payload?.headers ?? []
+    const fromHeader = headers.find((h) => h.name === 'From')?.value ?? ''
+    const subjectHeader = headers.find((h) => h.name === 'Subject')?.value ?? ''
+    return {
+      id: raw.id,
+      from: fromHeader,
+      subject: subjectHeader,
+      labelIds: [...new Set([...(raw.labelIds ?? []), ...(first?.labelIds ?? [])])],
+      messageCount: raw.messages?.length ?? 0,
+    }
   })
 
-  return {
-    threads: projected,
-    nextPageToken: list.nextPageToken ?? null,
-  }
+  return { threads, nextPageToken: list.nextPageToken ?? null }
 }
 
-export async function trashThreads(
+export function trashThreads(
   accessToken: string,
   threadIds: string[],
   permanent: boolean,
-): Promise<TrashResult[]> {
-  return pool(threadIds, GMAIL_CONCURRENCY, async (id) => {
+): Promise<{ id: string; success: boolean; error?: string }[]> {
+  const method = permanent ? 'DELETE' : 'POST'
+  return pool(threadIds, async (id) => {
+    const path = permanent
+      ? `/threads/${encodeURIComponent(id)}`
+      : `/threads/${encodeURIComponent(id)}/trash`
     try {
-      const path = permanent
-        ? `/threads/${encodeURIComponent(id)}`
-        : `/threads/${encodeURIComponent(id)}/trash`
-      const res = await gmailFetch(accessToken, path, {
-        method: permanent ? 'DELETE' : 'POST',
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        return { id, success: false, error: `${res.status} ${text}`.trim() }
-      }
-      return { id, success: true }
+      const res = await gmailFetch(accessToken, path, { method })
+      if (res.ok) return { id, success: true }
+      const text = await res.text().catch(() => '')
+      return { id, success: false, error: `${res.status} ${text}`.trim() }
     } catch (err) {
       return { id, success: false, error: (err as Error).message }
     }
