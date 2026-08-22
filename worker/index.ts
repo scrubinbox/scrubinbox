@@ -190,7 +190,7 @@ api.get('/scan/inbox-info', authed, async (c) => {
 })
 
 const scanPageSchema = z.object({
-  pageToken: z.string().nullable().optional(),
+  pageToken: z.string().max(1024).nullable().optional(),
   config: z.object({
     includeArchived: z.boolean().optional(),
   }).optional(),

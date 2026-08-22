@@ -38,7 +38,7 @@ export function saveScanState({
 }) {
   try {
     const payload = {
-      version: 1,
+      version: 2,
       savedAt: Date.now(),
       userId,
       collectionResult: collectionResult.toJSON(),
@@ -67,7 +67,7 @@ export function loadScanState() {
     const raw = sessionStorage.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed.version !== 1) return null;
+    if (parsed.version !== 2) return null;
     return {
       savedAt: parsed.savedAt,
       userId: parsed.userId,
