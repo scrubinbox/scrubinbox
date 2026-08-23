@@ -5,24 +5,11 @@ Declutter your Gmail inbox by sender domain. Scan, group thousands of newsletter
 [![CI](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml/badge.svg)](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Three ways to use ScrubInbox
+## Use ScrubInbox
 
-### 1. Hosted app — [app.scrubinbox.com](https://app.scrubinbox.com)
+The hosted app is the only supported way to use ScrubInbox: [**app.scrubinbox.com**](https://app.scrubinbox.com). One-time **$4.99 early-adopter lifetime license.** Sign in with Google, pay through Stripe, clean up. See our [Privacy Policy](https://scrubinbox.com/privacy.html) for what data is stored where.
 
-One-time **$4.99 early-adopter lifetime license.** Sign in with Google, pay through Stripe, clean up. This is the simplest path — you don't set up anything and we handle keeping the OAuth verification, backend, and payments running. See our [Privacy Policy](https://scrubinbox.com/privacy.html) for what data is stored where.
-
-### 2. Self-host
-
-The entire application is open source under the MIT License. You can run your own instance if you'd rather host it yourself. Two things to know up front:
-
-- The **paywall + auth stack is baked into the current build** (Supabase for identity + entitlement, a Cloudflare Worker for the API, Stripe for payments). Running the current `main` branch as-is means standing up all three services for your own account.
-- A dedicated **`VITE_SCRUBINBOX_MODE=selfhost` toggle that skips the Supabase/Stripe/Workers layer** and runs the app in its original pure-client-side mode is planned but not yet shipped. Track progress in Phase 6 of the roadmap or file an issue if you want to help.
-
-If you self-host, you are the data controller for your own instance — our Privacy Policy and Terms of Service do not apply.
-
-### 3. Contribute
-
-Bug reports, feature requests, and pull requests are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+The source is public and MIT-licensed so anyone can audit exactly what the app does with their Google account. Auditability is the trust mechanism, not a supported self-host workflow — we don't build for, document, or maintain a self-host path.
 
 ## How it works
 
@@ -67,22 +54,30 @@ Client-side filtering against the actual `labelIds` returned by `threads.get` is
 - **Email bodies stay in your browser.** Gmail API calls run through our Cloudflare Worker so we can enforce the paywall at the trust boundary. What transits the Worker is thread metadata (From, Subject, label IDs) — held in Worker memory for the duration of the request and never persisted.
 - **The backend stores only what's needed to run the paid service:** your account (Google user ID + email), your entitlement (paid or not), an AES-256-GCM-encrypted copy of your Google refresh token, and running scan/trash counts.
 - **Sub-processors are named in the** [Privacy Policy](https://scrubinbox.com/privacy.html): Neon (Postgres), Stripe (payments as Merchant of Record), Cloudflare (hosting), Google (OAuth + Gmail API).
-- **Trust the auditability, not our claims.** The Worker source is open. If you'd rather not send anything through our backend at all, self-host. (Reminder: the self-host toggle that skips the auth/paywall/proxy layer isn't shipped yet; see above.)
+- **Trust the auditability, not our claims.** The Worker source is open. Every commit and every deploy is visible.
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Development
+
+Contributors who want to run the app locally to test changes need the same set of external services the hosted app uses (Neon, Google OAuth, Stripe). This is a working setup for development purposes, not a supported self-host path.
 
 ### Prerequisites
 
 - Node.js 22.15+ (required by `@cloudflare/vite-plugin`)
-- A Supabase project for local auth (or an equivalent Postgres + auth setup)
-- A Google Cloud OAuth client wired to your Supabase project (see [Supabase's Google auth guide](https://supabase.com/docs/guides/auth/social-login/auth-google))
+- A Neon Postgres database (free tier is fine)
+- A Google Cloud OAuth client configured with your local dev callback URL
+- A Stripe account in test mode (only needed if you're touching the paywall or checkout flow)
 
 ### Setup
 
 ```bash
 cp .env.example .env
-# Fill in the values — .env.example has annotated slots for both the
-# Vite-facing VITE_* vars and the Worker-facing SUPABASE_* / STRIPE_* vars.
+# Fill in the values — .env.example has annotated slots for the
+# Worker-facing DATABASE_URL, GOOGLE_CLIENT_*, STRIPE_*, SESSION_JWT_SECRET,
+# and REFRESH_TOKEN_ENCRYPTION_KEY.
 
 npm install
 npm run dev
@@ -108,12 +103,12 @@ The hosted `app.scrubinbox.com` is a single Cloudflare Worker that serves both t
 ## Repository structure
 
 - `src/` — Svelte 5 SPA
-- `worker/` — Cloudflare Worker (Hono + Stripe SDK + Supabase JS)
+- `worker/` — Cloudflare Worker (Hono + Stripe SDK + Neon serverless driver)
 - `landing/` — marketing site at `scrubinbox.com` (static HTML)
-- `supabase/migrations/` — Postgres schema for the hosted service
+- `db/migrations/` — Postgres schema
 - `.github/workflows/` — CI (staging deploy) + release (production deploy)
 
-The production hosting infrastructure (Cloudflare zone, DNS records, Supabase projects) lives in a private companion repo (`scrubinbox-infra`) and is not needed to run or self-host this app.
+The production hosting infrastructure (Cloudflare zone, DNS records, Neon connection strings) lives in a private companion repo (`scrubinbox-infra`) and is not needed to run the app locally.
 
 ## Disclaimer
 

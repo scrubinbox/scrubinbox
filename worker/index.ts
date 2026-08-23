@@ -35,6 +35,7 @@ import {
   getInboxTotal,
   getPaidStatus,
   getScanPage,
+  isEntitlementActive,
   listLabels,
   trashThreads,
 } from './gmail'
@@ -147,14 +148,10 @@ api.get('/me', authed, async (c) => {
   ])
   if (!user) return c.json({ error: 'user not found' }, 401)
 
-  // Paid derivation goes through the same helper /api/trash uses so the
-  // paywall trust boundary can never drift from what the client sees.
-  const paid = await getPaidStatus(sql, c.var.userId)
-
   return c.json({
     id: user.id,
     email: user.email,
-    paid,
+    paid: isEntitlementActive(entitlement),
     type: entitlement?.type ?? null,
     expires_at: entitlement?.expires_at ?? null,
     trial_used: !!trial?.trial_used_at,

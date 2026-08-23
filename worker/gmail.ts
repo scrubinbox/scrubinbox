@@ -76,18 +76,26 @@ export async function getGmailAccessToken(
   }
 }
 
-// Shared paid-status derivation. /api/trash and /api/me both call this so
-// the paywall trust boundary can't drift from what the client sees.
-export async function getPaidStatus(sql: Sql, userId: string): Promise<boolean> {
-  const entitlement = await getEntitlement(sql, userId)
+// Pure predicate for paid status. Kept separate so /api/me can reuse the
+// entitlement it already fetched (avoiding a second Neon round-trip) while
+// /api/trash's wrapper still queries authoritatively from the database.
+export function isEntitlementActive(
+  entitlement: { expires_at: Date | string | null } | null,
+): boolean {
   if (!entitlement) return false
   if (entitlement.expires_at === null) return true
   return new Date(entitlement.expires_at).getTime() > Date.now()
 }
 
+// /api/trash's paid check: always re-reads from the DB so the paywall trust
+// boundary can't drift from what the client thinks it knows.
+export async function getPaidStatus(sql: Sql, userId: string): Promise<boolean> {
+  return isEntitlementActive(await getEntitlement(sql, userId))
+}
+
 // Bounded-concurrency fan-out. Workers pull from a shared index; single-
-// threaded JS makes `i++` atomic.
-async function pool<T, U>(
+// threaded JS makes `i++` atomic. Exported for testing.
+export async function pool<T, U>(
   items: T[],
   fn: (item: T) => Promise<U>,
 ): Promise<U[]> {
