@@ -217,7 +217,7 @@
     <h1>Privacy Policy</h1>
     <p class="last-updated">Last updated: July 13, 2026</p>
 
-    <p>This policy describes how ScrubInbox handles your data when you use the hosted app at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a>. The self-hosted, open source version of ScrubInbox is not covered by this policy — self-hosters are their own data controller.</p>
+    <p>This policy describes how ScrubInbox handles your data when you use the hosted app at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a>.</p>
 
     <div class="callout">
       <strong>The short version:</strong> Email bodies never leave your browser. To enforce the paywall at the trust boundary and stay within Cloudflare's per-request limits, our Cloudflare Worker proxies Gmail on your behalf during a scan &mdash; thread metadata (sender address, subject line, label IDs) transits through the Worker in memory for the duration of each request and is never persisted. We do store a small amount of account and purchase data (your email address, your entitlement, a running count of how many threads you've scanned and trashed, and your Google refresh token encrypted with AES-256-GCM) in a Postgres database at our sub-processor <strong>Neon</strong>. Payments are handled by <strong>Stripe</strong>.
@@ -299,7 +299,7 @@
     <p>ScrubInbox is not directed at children under 13, and we do not knowingly collect data from children. If you believe a child has provided data to ScrubInbox, please email <a href="mailto:support@scrubinbox.com">support@scrubinbox.com</a> and we will delete it.</p>
 
     <h2>Open source</h2>
-    <p>ScrubInbox is fully open source under the MIT license. You can inspect every line of code at <a href="https://github.com/scrubinbox/scrubinbox">github.com/scrubinbox/scrubinbox</a>. The self-hosted version does not require any of the sub-processors listed above.</p>
+    <p>ScrubInbox is fully open source under the MIT license. You can inspect every line of code at <a href="https://github.com/scrubinbox/scrubinbox">github.com/scrubinbox/scrubinbox</a>.</p>
 
     <h2>Changes to this policy</h2>
     <p>If this policy changes materially, we will update the "Last updated" date above and, where we hold your email address, notify you at that address before the changes take effect.</p>
