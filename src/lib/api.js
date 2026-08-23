@@ -53,12 +53,3 @@ export function createCheckoutSession() {
 export function signOut() {
   return request('/auth/signout', { method: 'POST' });
 }
-
-/**
- * Mints a fresh Google access token for Gmail API calls, refreshed by the
- * Worker from the encrypted refresh token in Neon. Returns
- * { access_token, expires_at (unix seconds), scope }.
- */
-export function getGmailToken() {
-  return request('/auth/gmail-token');
-}

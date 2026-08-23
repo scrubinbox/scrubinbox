@@ -1,15 +1,16 @@
 /**
- * Domain Collector - Handles domain collection from Gmail inbox
+ * Domain Collector — pulls thread metadata via the Worker proxy and
+ * groups by sender domain.
+ *
+ * The Worker returns a full page of projected thread metadata per call
+ * (see /api/scan/page). Client-side filtering (starred, important, custom
+ * labels, excluded domains) stays here so the user's filter preferences
+ * never touch the server.
  */
 
-import { getInboxInfo, getProfile, getLabelInfo, listThreads, getThread } from './api.js';
-import { ThreadsList, Thread, CleanupThread, DomainResult, CollectionResult } from '../models/index.js';
-import {
-  THREAD_PAGE_SIZE,
-  API_CONCURRENCY,
-} from '../constants.js';
+import { getInboxInfo, fetchScanPage } from './api.js';
+import { Thread, CleanupThread, DomainResult, CollectionResult } from '../models/index.js';
 import { getErrorMessage } from '../errors.js';
-import { asyncPool } from '../asyncPool.js';
 
 export class DomainCollector {
   constructor(config, progressCallback = null) {
@@ -60,29 +61,24 @@ export class DomainCollector {
 
     while (!this.interrupted) {
       try {
-        const page = await this._fetchThreadPage(pageToken);
+        const page = await fetchScanPage({
+          pageToken,
+          config: { includeArchived: this.config.includeArchived },
+        });
 
-        if (page.threadIds.length === 0) {
+        if (!page.threads || page.threads.length === 0) {
           break;
         }
 
-        // Fetch + process threads concurrently. Doing the sync bookkeeping
-        // (increment scanned, filter, store, count domains) INSIDE the pool
-        // callback means each network I/O naturally spaces the progress
-        // writes over the duration of the fetch. A prior version awaited
-        // the whole pool then ran a synchronous for-loop — that burst
-        // finished before the 100ms progress poller could fire, so users
-        // saw "Scanned 0 threads" until the results view appeared.
-        await asyncPool(page.threadIds, API_CONCURRENCY, async (id) => {
-          if (this.interrupted) return;
-
-          const thread = await this._getThread(id);
+        for (const projected of page.threads) {
+          if (this.interrupted) break;
 
           scanned += 1;
           this.progress.scanned = scanned;
 
-          if (thread === null) return;
-          if (!this._shouldInclude(thread)) return;
+          const thread = new Thread(projected.id, projected);
+          if (thread.isEmpty() || !thread.getDomain()) continue;
+          if (!this._shouldInclude(thread)) continue;
 
           this._storeThread(thread);
 
@@ -92,7 +88,7 @@ export class DomainCollector {
           collected += 1;
           this.progress.collected = collected;
           this.progress.uniqueDomains = Object.keys(domainCounts).length;
-        });
+        }
 
         pageToken = page.nextPageToken;
         if (!pageToken) break;
@@ -124,51 +120,12 @@ export class DomainCollector {
 
   async _getTotalThreadCount() {
     try {
-      if (this.config.includeArchived) {
-        const [profile, trashInfo, spamInfo] = await Promise.all([
-          getProfile(),
-          getLabelInfo('TRASH'),
-          getLabelInfo('SPAM'),
-        ]);
-        const total = profile.threadsTotal || 0;
-        const trash = trashInfo.threadsTotal || 0;
-        const spam = spamInfo.threadsTotal || 0;
-        return Math.max(total - trash - spam, 0);
-      }
-      const inboxInfo = await getInboxInfo();
-      return inboxInfo.threadsTotal || 0;
+      const info = await getInboxInfo(this.config.includeArchived);
+      return info.threadsTotal || 0;
     } catch (e) {
       console.warn('Could not get thread count:', e);
       return 0;
     }
-  }
-
-  _buildQuery() {
-    return this.config.includeArchived ? '-in:trash -in:spam' : 'in:inbox';
-  }
-
-  // it seems gmail api query isn't reliable so we 
-  // have to resort to "client-side" filtering for now
-  async _fetchThreadPage(pageToken) {
-    const raw = await listThreads({
-      maxResults: THREAD_PAGE_SIZE,
-      pageToken,
-      q: this._buildQuery(),
-    });
-
-    return new ThreadsList(raw);
-  }
-
-  async _getThread(threadId) {
-    const raw = await getThread(threadId, {
-      format: 'metadata',
-      metadataHeaders: ['From', 'Subject'],
-    });
-
-    const thread = new Thread(threadId, raw);
-    if (thread.isEmpty() || !thread.getDomain()) return null;
-
-    return thread;
   }
 
   // === Filtering ===

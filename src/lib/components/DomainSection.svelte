@@ -65,7 +65,9 @@
   async function executeCleanup() {
     if ($isCleaning) return;
 
-    // Paywall: scan is always free, trash/delete is gated.
+    // Paywall UX gate: scan is always free, trash/delete is gated. The
+    // authoritative enforcement lives server-side — /api/trash returns
+    // HTTP 403 for non-paid users regardless of what this check does.
     if (!$isPaid) {
       showPurchase();
       return;

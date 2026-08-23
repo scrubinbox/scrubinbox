@@ -50,7 +50,7 @@
       </li>
       <li class="flex items-start gap-2">
         <svg class="w-4 h-4 mt-0.5 text-sage-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        Email content stays in your browser — never sent to our servers
+        Email bodies stay in your browser; nothing about your mail is stored on our servers
       </li>
       <li class="flex items-start gap-2">
         <svg class="w-4 h-4 mt-0.5 text-sage-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>

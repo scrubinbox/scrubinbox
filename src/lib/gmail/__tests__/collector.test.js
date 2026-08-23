@@ -5,16 +5,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DomainCollector } from '../collector.js';
 import { CollectorConfig, Thread } from '../../models/index.js';
-import { sampleInbox, createApiMocks, setupApiMocks } from './testUtils.js';
+import { sampleInbox, setupApiMocks } from './testUtils.js';
 
 // Top-level mock with vi.fn() stubs — hoisted safely
 vi.mock('../api.js', () => ({
   getInboxInfo: vi.fn(),
-  getProfile: vi.fn(),
-  getLabelInfo: vi.fn(),
-  listThreads: vi.fn(),
-  getThread: vi.fn(),
-  trashThread: vi.fn(),
+  fetchScanPage: vi.fn(),
+  trashBatch: vi.fn(),
+  listLabels: vi.fn(),
 }));
 
 import * as api from '../api.js';
@@ -166,11 +164,10 @@ describe('shouldInclude', () => {
 
   function makeThread(sender, labelIds = ['INBOX']) {
     return new Thread('test', {
+      from: sender,
+      subject: '',
       labelIds,
-      messages: [{
-        labelIds,
-        payload: { headers: [{ name: 'From', value: sender }] },
-      }],
+      messageCount: 1,
     });
   }
 
@@ -202,11 +199,9 @@ describe('shouldInclude', () => {
 // === Collection Tests (Async) ===
 
 describe('collect', () => {
-  let mocks;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks = setupApiMocks(api, sampleInbox());
+    setupApiMocks(api, sampleInbox());
   });
 
   function defaultConfig(overrides = {}) {
@@ -358,14 +353,6 @@ describe('collect', () => {
     // Regular inbox threads should still be present
     expect(dr['spam.com']).toBeDefined();
     expect(dr['social.com']).toBeDefined();
-  });
-
-  it('includeArchived sets scanTotal from profile minus trash and spam', async () => {
-    const collector = new DomainCollector(defaultConfig({ includeArchived: true }));
-    await collector.collect();
-
-    // threadsTotal from profile (11) minus trash (0) minus spam (0)
-    expect(collector.progress.scanTotal).toBe(11);
   });
 
   it('with label exclusion disabled, custom-labeled threads are collected', async () => {

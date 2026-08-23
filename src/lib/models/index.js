@@ -41,50 +41,34 @@ export class CleanerConfig {
 // === API Response Wrappers ===
 
 /**
- * Wraps a raw Gmail threads.list API response.
- * Constructed in collector.js from raw JSON returned by api.listThreads().
- */
-export class ThreadsList {
-  constructor(raw) {
-    this._raw = raw;
-  }
-
-  get threadIds() {
-    return (this._raw.threads || []).map(t => t.id);
-  }
-
-  get nextPageToken() {
-    return this._raw.nextPageToken || null;
-  }
-}
-
-/**
- * Wraps a raw Gmail threads.get API response.
- * Constructed in collector.js from raw JSON returned by api.getThread().
+ * Wraps a projected thread from the Worker's /api/scan/page endpoint.
  *
- * Replaces ThreadMetadata — this is now the single model for thread data.
- * Encapsulates all header parsing, email extraction, and label merging.
+ * Shape: {id, from, subject, labelIds, messageCount}. All header parsing,
+ * label merging, and message-count extraction happens server-side; the
+ * client just consumes the flat projection.
  */
 export class Thread {
-  constructor(threadId, raw) {
+  constructor(threadId, projected) {
     this.threadId = threadId;
-    this._raw = raw;
+    this._from = projected.from ?? '';
+    this._subject = projected.subject ?? '';
+    this._labelIds = projected.labelIds ?? [];
+    this._messageCount = projected.messageCount ?? 0;
   }
 
   /** @returns {boolean} True if the thread has no messages */
   isEmpty() {
-    const messages = this._raw.messages || [];
-    return messages.length === 0;
+    return this._messageCount === 0;
   }
 
   /** @returns {string} Raw From header value, e.g. "John <john@example.com>" */
   getSender() {
-    return this._getHeader('From') || '(Unknown Sender)';
+    return this._from || '(Unknown Sender)';
   }
 
   /** @returns {string} Subject header value */
   getSubject() {
-    return this._getHeader('Subject') || '(No Subject)';
+    return this._subject || '(No Subject)';
   }
 
   /** @returns {string} Parsed and lowercased email address from From header */
@@ -99,27 +83,22 @@ export class Thread {
 
   /** @returns {number} Number of messages in the thread */
   getMessageCount() {
-    return (this._raw.messages || []).length;
+    return this._messageCount;
   }
 
-  /**
-   * @returns {string[]} Merged and deduped label IDs from thread level and first message level
-   */
+  /** @returns {string[]} Merged and deduped label IDs (already flattened server-side) */
   getLabelIds() {
-    const threadLabelIds = this._raw.labelIds || [];
-    const messages = this._raw.messages || [];
-    const firstMessageLabelIds = messages.length > 0 ? (messages[0].labelIds || []) : [];
-    return [...new Set([...threadLabelIds, ...firstMessageLabelIds])];
+    return this._labelIds;
   }
 
-  // === Private Helpers ===
-
-  _getHeader(name) {
-    const messages = this._raw.messages || [];
-    if (messages.length === 0) return null;
-    const headers = messages[0].payload?.headers || [];
-    const header = headers.find(h => h.name === name);
-    return header ? header.value : null;
+  /** Serialised form for persistScan.js round-tripping through sessionStorage. */
+  toProjected() {
+    return {
+      from: this._from,
+      subject: this._subject,
+      labelIds: this._labelIds,
+      messageCount: this._messageCount,
+    };
   }
 
   // === Static Utilities ===
@@ -249,13 +228,13 @@ export class CollectionResult {
 
   /**
    * Serialise the result to a plain object suitable for JSON.stringify.
-   * Thread instances become {threadId, _raw} so fromJSON can rebuild them —
-   * class methods obviously don't survive JSON.
+   * Thread instances become {threadId, projected} so fromJSON can rebuild
+   * them — class methods obviously don't survive JSON.
    */
   toJSON() {
     const threadsById = {};
     for (const [id, thread] of Object.entries(this.threadsById)) {
-      threadsById[id] = { threadId: thread.threadId, raw: thread._raw };
+      threadsById[id] = { threadId: thread.threadId, projected: thread.toProjected() };
     }
     return {
       domainResults: this.domainResults,
@@ -270,7 +249,7 @@ export class CollectionResult {
   static fromJSON(data) {
     const threadsById = {};
     for (const [id, obj] of Object.entries(data.threadsById)) {
-      threadsById[id] = new Thread(obj.threadId, obj.raw);
+      threadsById[id] = new Thread(obj.threadId, obj.projected);
     }
     const domainResults = {};
     for (const [domain, obj] of Object.entries(data.domainResults)) {

@@ -1,118 +1,83 @@
 /**
- * Gmail API wrapper using gapi.client.gmail
+ * Gmail API wrapper — talks to our Worker proxy, not Google directly.
  *
- * All functions use the access token managed internally by gapi.client
- * (set automatically by GIS after authentication).
+ * The Worker owns the Google access token; this module just POSTs the
+ * shape the endpoints expect and returns the projected data. Session
+ * auth rides on the sb_session cookie set at OAuth callback.
  */
 
-import { refreshGoogleAccessToken } from './auth.js';
+const API_BASE = '/api';
 
-/**
- * Wraps an API call with automatic token refresh on 401 errors.
- * Refresh goes through Supabase, which uses the stored Google refresh token
- * to mint a new provider_token without showing a consent dialog.
- */
-async function withTokenRefresh(apiCall) {
-  try {
-    const response = await apiCall();
-    return response.result;
-  } catch (err) {
-    if (err.status === 401) {
-      await refreshGoogleAccessToken();
-      const response = await apiCall();
-      return response.result;
+async function request(path, init = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(init.headers ?? {}),
+  };
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+    credentials: 'same-origin',
+  });
+  if (!res.ok) {
+    let bodyJson = null;
+    try {
+      bodyJson = await res.json();
+    } catch {
+      // non-JSON error body — surface the raw text below
     }
+    const err = new Error(
+      `API ${path} ${res.status}: ${bodyJson?.error ?? '(no body)'}`,
+    );
+    err.status = res.status;
+    err.code = bodyJson?.error ?? null;
     throw err;
   }
+  return res.status === 204 ? null : res.json();
 }
 
 /**
- * Get the authenticated user's Gmail profile (email address).
- */
-export function getProfile() {
-  return withTokenRefresh(() =>
-    gapi.client.gmail.users.getProfile({
-      userId: 'me',
-    })
-  );
-}
-
-/**
- * Get info for a specific label (includes threadsTotal).
- */
-export function getLabelInfo(labelId) {
-  return withTokenRefresh(() =>
-    gapi.client.gmail.users.labels.get({
-      userId: 'me',
-      id: labelId,
-    })
-  );
-}
-
-/**
- * Get inbox label info (includes threadsTotal for progress reporting).
- */
-export function getInboxInfo() {
-  return getLabelInfo('INBOX');
-}
-
-/**
- * List all user labels.
+ * List the signed-in user's Gmail labels. Returns { labels: [{id, name, type, ...}] }.
  */
 export function listLabels() {
-  return withTokenRefresh(() =>
-    gapi.client.gmail.users.labels.list({
-      userId: 'me',
-    })
-  );
+  return request('/labels');
 }
 
 /**
- * List threads with pagination support.
+ * Total scannable-thread count for progress display.
+ * Returns { threadsTotal }.
  */
-export function listThreads({ maxResults = 100, pageToken = null, q = 'in:inbox' } = {}) {
-  const params = { userId: 'me', maxResults, q };
-  if (pageToken) params.pageToken = pageToken;
-
-  return withTokenRefresh(() =>
-    gapi.client.gmail.users.threads.list(params)
-  );
+export function getInboxInfo(includeArchived = false) {
+  const qs = includeArchived ? '?includeArchived=true' : '';
+  return request(`/scan/inbox-info${qs}`);
 }
 
 /**
- * Get a single thread with metadata.
+ * Fetch one page of thread metadata. Worker returns up to 49 projected
+ * threads plus a nextPageToken for the next call.
+ *
+ * @param {object} args
+ * @param {string|null} args.pageToken
+ * @param {{includeArchived: boolean}} args.config
+ * @returns {Promise<{threads: Array<{id, from, subject, labelIds, messageCount}>, nextPageToken: string|null}>}
  */
-export function getThread(threadId, { format = 'metadata', metadataHeaders = ['From', 'Subject'] } = {}) {
-  return withTokenRefresh(() =>
-    gapi.client.gmail.users.threads.get({
-      userId: 'me',
-      id: threadId,
-      format,
-      metadataHeaders,
-    })
-  );
+export function fetchScanPage({ pageToken = null, config }) {
+  return request('/scan/page', {
+    method: 'POST',
+    body: JSON.stringify({ pageToken, config }),
+  });
 }
 
 /**
- * Move a thread to trash.
+ * Trash (or permanently delete) a batch of threads server-side. The Worker
+ * enforces the paywall here — non-paid users get HTTP 403.
+ *
+ * @param {string[]} threadIds  Max 49 per call.
+ * @param {boolean} permanent
+ * @returns {Promise<{results: Array<{id, success, error?}>}>}
  */
-export function trashThread(threadId) {
-  return withTokenRefresh(() =>
-    gapi.client.gmail.users.threads.trash({
-      userId: 'me',
-      id: threadId,
-    })
-  );
-}
-
-/**
- * Permanently delete a thread. Cannot be undone.
- */
-export function deleteThread(threadId) {
-  return withTokenRefresh(() =>
-    gapi.client.gmail.users.threads.delete({
-      userId: 'me',
-      id: threadId,
-    })
-  );
+export function trashBatch(threadIds, permanent = false) {
+  return request('/trash', {
+    method: 'POST',
+    body: JSON.stringify({ threadIds, permanent }),
+  });
 }

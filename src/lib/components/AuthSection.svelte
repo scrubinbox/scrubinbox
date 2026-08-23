@@ -4,9 +4,8 @@
   import { collectionResult, domains } from '../stores/collectionStore.js';
   import { selectedThreadIds, expandedDomains } from '../stores/cleanupStore.js';
   import { showDomains } from '../stores/uiStore.js';
-  import { getMe } from '../api.js';
+  import { getMe, signOut } from '../api.js';
   import { signIn } from '../auth.js';
-  import { initGoogleLibraries, ensureGmailToken, signOut } from '../gmail/auth.js';
   import { getErrorMessage } from '../errors.js';
   import { loadScanState, clearScanState } from '../persistScan.js';
 
@@ -52,13 +51,6 @@
       clearAuthState();
       return;
     }
-    try {
-      await ensureGmailToken();
-    } catch (err) {
-      authError = `Couldn't attach Gmail token: ${getErrorMessage(err)}`;
-      clearAuthState();
-      return;
-    }
     $userId = me.id;
     $userEmail = me.email ?? '';
     $isPaid = !!me.paid;
@@ -69,11 +61,11 @@
 
   onMount(async () => {
     try {
-      await initGoogleLibraries();
-      authReady = true;
       await loadSession();
     } catch (error) {
-      authError = `Failed to load Google libraries: ${getErrorMessage(error)}`;
+      authError = `Failed to load session: ${getErrorMessage(error)}`;
+    } finally {
+      authReady = true;
     }
   });
 
@@ -131,7 +123,7 @@
         </div>
         <h2 class="text-lg font-bold text-sage-800 mb-1">Connect your Gmail</h2>
         <p class="text-sm text-sage-400 max-w-sm mx-auto">
-          Sign in to scan your inbox. Your email content stays in your browser and is never sent to any server.
+          Sign in to scan your inbox. Email bodies stay in your browser; only sender and subject headers transit our server, in memory, and nothing is stored.
         </p>
       </div>
 
