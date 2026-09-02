@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy — ScrubInbox</title>
-  <meta name="description" content="ScrubInbox privacy policy. Email content stays in your browser; account and purchase data is stored with named sub-processors.">
+  <meta name="description" content="ScrubInbox privacy policy. Email bodies never leave your browser; account and purchase data is stored with named sub-processors.">
   <link rel="icon" type="image/svg+xml" href="/favicon/scrubinbox-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
@@ -215,7 +215,7 @@
 
   <main class="content">
     <h1>Privacy Policy</h1>
-    <p class="last-updated">Last updated: July 13, 2026</p>
+    <p class="last-updated">Last updated: August 22, 2026</p>
 
     <p>This policy describes how ScrubInbox handles your data when you use the hosted app at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a>.</p>
 
@@ -272,7 +272,7 @@
     <h2>Cookies and browser storage</h2>
     <p>ScrubInbox uses:</p>
     <ul>
-      <li><strong><code>sb_session</code> cookie</strong> — Set by our Worker after you sign in. Contains a signed JSON Web Token that identifies your account to our backend. <code>HttpOnly</code> (unreadable from JavaScript), <code>Secure</code> (HTTPS-only), <code>SameSite=Lax</code> (not sent on cross-site sub-requests). Expires 30 days after the last sign-in, or immediately on sign-out.</li>
+      <li><strong><code>sb_session</code> cookie</strong> — Set by our Worker after you sign in. Contains a signed JSON Web Token that identifies your account to our backend. <code>HttpOnly</code> (unreadable from JavaScript), <code>Secure</code> (HTTPS-only), <code>SameSite=Lax</code> (not sent on cross-site sub-requests). Expires 24 hours after sign-in, or immediately on sign-out.</li>
       <li><strong><code>sessionStorage</code></strong> — Scan results are cached here so they survive the redirect to Stripe checkout and back. Cleared when the tab closes.</li>
     </ul>
     <p>ScrubInbox does not set analytics or advertising cookies.</p>
