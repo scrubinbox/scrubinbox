@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ScrubInbox — Declutter Your Gmail</title>
-  <meta name="description" content="A free, open source tool to mass unsubscribe and clean up your Gmail inbox. Email bodies stay in your browser; the backend proxies Gmail metadata in memory and stores nothing of your mail.">
+  <meta name="description" content="A free, open source tool to bulk clean your Gmail inbox by sender. Email bodies stay in your browser; the backend proxies Gmail metadata in memory and stores nothing of your mail.">
   <link rel="icon" type="image/svg+xml" href="/favicon/scrubinbox-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
@@ -490,6 +490,66 @@
       height: 16px;
     }
 
+    /* --- FAQ --- */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-width: 46rem;
+    }
+
+    .faq-item {
+      background: white;
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      transition: box-shadow 0.2s;
+    }
+    .faq-item[open] { box-shadow: 0 4px 20px rgba(122, 158, 126, 0.1); }
+
+    .faq-item summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.1rem 1.4rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--ink);
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+
+    .faq-chevron {
+      width: 16px;
+      height: 16px;
+      color: var(--sage);
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+    .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+
+    .faq-body {
+      padding: 0 1.4rem 1.25rem;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+    .faq-body p + p { margin-top: 0.6rem; }
+    .faq-body ul {
+      margin-top: 0.6rem;
+      padding-left: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .faq-body strong { color: var(--ink-light); font-weight: 600; }
+    .faq-body a {
+      color: var(--sage-dark);
+      font-weight: 500;
+    }
+    .faq-body a:hover { color: var(--sage-deeper); }
+
     /* --- Footer --- */
     footer {
       max-width: 1080px;
@@ -548,6 +608,7 @@
         <span class="logo-text">ScrubInbox</span>
       </a>
       <div class="nav-links">
+        <a href="/#faq">FAQ</a>
         <a href="/privacy.html">Privacy</a>
         <a href="https://github.com/scrubinbox/scrubinbox">GitHub</a>
         <a href="https://app.scrubinbox.com" class="nav-cta">Launch App</a>
@@ -696,6 +757,120 @@
       </div>
     </div>
   </section>
+
+  <section class="section" id="faq">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Questions you might have</h2>
+    <div class="faq-list">
+
+      <details class="faq-item" open>
+        <summary>
+          Why was ScrubInbox built?
+          <svg class="faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="faq-body">
+          <p>Because keeping an inbox clean the "right" way stopped being possible. Every service you sign up for wants your email address, and every one of them sends notifications, promotions, and digests forever. Maintaining filters and chasing unsubscribe links for hundreds of senders is a losing game &mdash; by the time you've tamed one, three more have appeared.</p>
+          <p>ScrubInbox takes the opposite approach: let the mail pile up, then sweep it out in bulk. It groups everything by sender domain so one decision can clear thousands of threads, and a few minutes every month or two keeps the inbox usable. It's inbox zero without the upkeep.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          Will it delete something important?
+          <svg class="faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="faq-body">
+          <p>It's designed not to. Starred and important emails are skipped automatically, you can exclude any label, and nothing is removed until you've reviewed the sender list and selected it yourself. The default action is Move to Trash, which Gmail keeps recoverable for 30 days &mdash; so even a change of heart has a month of runway. Permanent deletion exists, but it's a separate opt-in checkbox with its own warning.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          What does it cost?
+          <svg class="faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="faq-body">
+          <p>Scanning and reviewing your inbox is free &mdash; you can see exactly what's cluttering it before paying anything. Cleaning up is a one-time $4.99 purchase. No subscription, no recurring charge, and the code is open source if you'd rather run your own instance.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          Why does it ask for full Gmail access?
+          <svg class="faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="faq-body">
+          <p>Moving mail to trash requires Gmail's restricted-scope permission &mdash; Google offers no narrower scope that can delete email. Because of that, ScrubInbox went through Google's OAuth verification and an independent security assessment (CASA) before launch.</p>
+          <p>In practice the backend only ever requests metadata &mdash; sender, subject, and labels &mdash; never message bodies. And you can revoke access at any time from your <a href="https://myaccount.google.com/permissions">Google account permissions</a>.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          Can I add it to my phone's home screen?
+          <svg class="faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="faq-body">
+          <p>Yes &mdash; ScrubInbox works great on mobile, and you can pin it like a native app:</p>
+          <ul>
+            <li><strong>iPhone / iPad:</strong> open <a href="https://app.scrubinbox.com">app.scrubinbox.com</a> in Safari, tap the Share button, then <strong>Add to Home Screen</strong>.</li>
+            <li><strong>Android:</strong> open <a href="https://app.scrubinbox.com">app.scrubinbox.com</a> in Chrome, tap the <strong>&#8942;</strong> menu, then <strong>Add to Home screen</strong>.</li>
+          </ul>
+          <p>You'll get the ScrubInbox icon on your home screen &mdash; one tap to sweep your inbox from anywhere.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          Does it unsubscribe me from mailing lists?
+          <svg class="faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="faq-body">
+          <p>No, and that's deliberate. Clicking unsubscribe links confirms to shady senders that your address is live, and even legitimate ones can take days to honor the request. Deleting in bulk gives you the clean inbox immediately, without telling anyone anything. For senders you never want to hear from again, Gmail's own block and spam tools finish the job.</p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why was ScrubInbox built?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Keeping an inbox clean the traditional way stopped being possible: every service sends notifications, promotions, and digests forever, and maintaining filters for hundreds of senders is a losing game. ScrubInbox takes the opposite approach: let the mail pile up, then sweep it out in bulk, grouped by sender domain, in minutes." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will it delete something important?",
+        "acceptedAnswer": { "@type": "Answer", "text": "It's designed not to. Starred and important emails are skipped automatically, you can exclude any label, and nothing is removed until you select it. The default action is Move to Trash, recoverable in Gmail for 30 days. Permanent deletion is a separate opt-in with its own warning." }
+      },
+      {
+        "@type": "Question",
+        "name": "What does it cost?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Scanning and reviewing your inbox is free. Cleaning up is a one-time $4.99 purchase. No subscription, and the code is open source if you'd rather run your own instance." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does it ask for full Gmail access?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Moving mail to trash requires Gmail's restricted-scope permission; Google offers no narrower scope that can delete email. ScrubInbox passed Google's OAuth verification and an independent CASA security assessment. The backend only requests metadata (sender, subject, labels), never message bodies, and access can be revoked anytime from your Google account permissions." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I add it to my phone's home screen?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. On iPhone or iPad, open app.scrubinbox.com in Safari, tap Share, then Add to Home Screen. On Android, open app.scrubinbox.com in Chrome, tap the menu, then Add to Home screen. You'll get the ScrubInbox icon on your home screen like a native app." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it unsubscribe me from mailing lists?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No, deliberately. Unsubscribe links confirm to shady senders that your address is live, and legitimate ones can take days to honor the request. Bulk deleting gives you a clean inbox immediately; Gmail's block and spam tools handle senders you never want to hear from again." }
+      }
+    ]
+  }
+  </script>
 
   <footer>
     <span>&copy; 2026 ScrubInbox</span>
