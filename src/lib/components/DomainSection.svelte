@@ -121,7 +121,7 @@
     <!-- Header -->
     <div class="px-5 pt-5 pb-4">
       <h3 class="text-sm font-semibold text-sage-700 mb-0.5">Review Sender Domains</h3>
-      <p class="text-xs text-sage-400">Select sender domains to clean up. Starred, important, and excluded labeled emails are skipped.</p>
+      <p class="text-xs text-sage-400">Select sender domains to clean up. Starred and excluded labeled emails are skipped.</p>
     </div>
 
     <!-- Controls -->
