@@ -1,6 +1,6 @@
 # ScrubInbox
 
-Declutter your Gmail inbox by sender domain. Scan, group thousands of newsletters and receipts by who sent them, then bulk-move to trash. Email bodies stay in your browser — the server only sees sender and subject headers in-flight and stores nothing of it.
+Declutter your Gmail inbox by sender domain. Scan, group thousands of newsletters and receipts by who sent them, then bulk-move to trash. Email bodies stay in your browser; the server only sees sender and subject headers in flight and stores nothing of it.
 
 [![CI](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml/badge.svg)](https://github.com/scrubinbox/scrubinbox/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,12 +9,12 @@ Declutter your Gmail inbox by sender domain. Scan, group thousands of newsletter
 
 The hosted app is the only supported way to use ScrubInbox: [**app.scrubinbox.com**](https://app.scrubinbox.com). One-time **$4.99 early-adopter lifetime license.** Sign in with Google, pay through Stripe, clean up. See our [Privacy Policy](https://scrubinbox.com/privacy.html) for what data is stored where.
 
-The source is public and MIT-licensed so anyone can audit exactly what the app does with their Google account. Auditability is the trust mechanism, not a supported self-host workflow — we don't build for, document, or maintain a self-host path.
+The source is public and MIT-licensed so anyone can audit exactly what the app does with their Google account. Auditability is the trust mechanism, not a supported self-host workflow; we don't build for, document, or maintain a self-host path.
 
 ## How it works
 
 1. **Sign in** with Google to grant scoped access to Gmail
-2. **Scan** your inbox — threads are grouped by sender domain
+2. **Scan** your inbox: threads are grouped by sender domain
 3. **Review** each domain, see counts and sample subject lines
 4. **Preview** what will be deleted
 5. **Trash** the selected threads in one bulk operation
@@ -23,13 +23,13 @@ Starred threads and threads with labels you excluded are automatically protected
 
 ### Why not exclude "Important" emails?
 
-Gmail's `IMPORTANT` label is applied automatically by Google's priority-inbox algorithm — it isn't an explicit user action. In practice Gmail marks the majority of inbox threads as important, so excluding them would silently discard most scan results. `STARRED`, by contrast, is always a deliberate user action, so starred threads are always excluded.
+Gmail's `IMPORTANT` label is applied automatically by Google's priority-inbox algorithm; it isn't an explicit user action. In practice Gmail marks the majority of inbox threads as important, so excluding them by default would silently discard most scan results. An optional filter toggle lets users exclude them anyway. `STARRED`, by contrast, is always a deliberate user action, so starred threads are always excluded.
 
 ### Why client-side filtering?
 
 Thread filtering (label exclusion, starred exclusion) happens client-side after fetching threads from the Gmail API rather than via Gmail query operators like `-label:Name`. We tested server-side filtering via the `threads.list` `q` parameter and found it unreliable for real-world label names.
 
-**The `-label:` operator silently fails for labels with spaces or slashes.** Gmail's query parser treats spaces as delimiters, so `-label:Work Projects` is parsed as `-label:Work` plus the search term `Projects` — the exclusion is lost and results are unfiltered. Neither quoting (`-label:"Work Projects"`) nor hyphenating (`-label:Work-Projects`) fixes this. Nested labels with `/` like `Finance/Receipts` also fail the same way.
+**The `-label:` operator silently fails for labels with spaces or slashes.** Gmail's query parser treats spaces as delimiters, so `-label:Work Projects` is parsed as `-label:Work` plus the search term `Projects`, and the exclusion is lost while results stay unfiltered. Neither quoting (`-label:"Work Projects"`) nor hyphenating (`-label:Work-Projects`) fixes this. Nested labels with `/` like `Finance/Receipts` also fail the same way.
 
 For simple single-word labels like `Newsletters`, `-label:Newsletters` works correctly. But since there's no way to know which labels in a user's account will work and which won't, we can't rely on it.
 
@@ -51,7 +51,7 @@ Client-side filtering against the actual `labelIds` returned by `threads.get` is
 
 ## Privacy positioning
 
-- **Email bodies stay in your browser.** Gmail API calls run through our Cloudflare Worker so we can enforce the paywall at the trust boundary. What transits the Worker is thread metadata (From, Subject, label IDs) — held in Worker memory for the duration of the request and never persisted.
+- **Email bodies stay in your browser.** Gmail API calls run through our Cloudflare Worker so we can enforce the paywall at the trust boundary. What transits the Worker is thread metadata (From, Subject, label IDs), held in Worker memory for the duration of the request and never persisted.
 - **The backend stores only what's needed to run the paid service:** your account (Google user ID + email), your entitlement (paid or not), an AES-256-GCM-encrypted copy of your Google refresh token, and running scan/trash counts.
 - **Sub-processors are named in the** [Privacy Policy](https://scrubinbox.com/privacy.html): Neon (Postgres), Stripe (payments as Merchant of Record), Cloudflare (hosting), Google (OAuth + Gmail API).
 - **Trust the auditability, not our claims.** The Worker source is open. Every commit and every deploy is visible.
@@ -75,8 +75,8 @@ Contributors who want to run the app locally to test changes need the same set o
 
 ```bash
 cp .env.example .env
-# Fill in the values — .env.example has annotated slots for the
-# Worker-facing DATABASE_URL, GOOGLE_CLIENT_*, STRIPE_*, SESSION_JWT_SECRET,
+# Fill in the values. .env.example has annotated slots for the
+# Worker-facing DATABASE_URL, GOOGLE_CLIENT_*, STRIPE_*, SESSION_SIGNING_SECRET,
 # and REFRESH_TOKEN_ENCRYPTION_KEY.
 
 npm install
@@ -102,11 +102,11 @@ The hosted `app.scrubinbox.com` is a single Cloudflare Worker that serves both t
 
 ## Repository structure
 
-- `src/` — Svelte 5 SPA
-- `worker/` — Cloudflare Worker (Hono + Stripe SDK + Neon serverless driver)
-- `landing/` — marketing site at `scrubinbox.com` (static HTML)
-- `db/migrations/` — Postgres schema
-- `.github/workflows/` — CI (staging deploy) + release (production deploy)
+- `src/`: Svelte 5 SPA
+- `worker/`: Cloudflare Worker (Hono + Stripe SDK + Neon serverless driver)
+- `landing/`: marketing site at `scrubinbox.com` (static HTML)
+- `db/migrations/`: Postgres schema
+- `.github/workflows/`: CI (staging deploy) + release (production deploy)
 
 The production hosting infrastructure (Cloudflare zone, DNS records, Neon connection strings) lives in a private companion repo (`scrubinbox-infra`) and is not needed to run the app locally.
 
