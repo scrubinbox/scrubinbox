@@ -502,9 +502,32 @@
       background: white;
       border: 1px solid var(--rule);
       border-radius: 12px;
-      transition: box-shadow 0.2s;
+      transition: box-shadow 0.25s ease;
     }
     .faq-item[open] { box-shadow: 0 4px 20px rgba(122, 158, 126, 0.1); }
+
+    /* Smooth height expansion where ::details-content is supported
+       (Chrome 131+, Safari 18.4+); elsewhere the fade below still runs
+       and open/close is instant. */
+    .faq-item::details-content {
+      block-size: 0;
+      overflow: hidden;
+      transition: block-size 0.3s ease, content-visibility 0.3s allow-discrete;
+      interpolate-size: allow-keywords;
+    }
+    .faq-item[open]::details-content { block-size: auto; }
+
+    /* Gentle fade + drift on the answer when a bubble opens. The
+       .faq-initial item ships open in the HTML, so it's excluded to
+       avoid replaying the animation on page load. */
+    .faq-item[open]:not(.faq-initial) .faq-body {
+      animation: faq-reveal 0.35s ease 0.05s both;
+    }
+
+    @keyframes faq-reveal {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
     .faq-item summary {
       cursor: pointer;
@@ -759,11 +782,10 @@
   </section>
 
   <section class="section" id="faq">
-    <div class="section-label">FAQ</div>
-    <h2 class="section-title">Questions you might have</h2>
+    <h2 class="section-title">FAQ</h2>
     <div class="faq-list">
 
-      <details class="faq-item" open>
+      <details class="faq-item faq-initial" open>
         <summary>
           Why was ScrubInbox built?
           <svg class="faq-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
