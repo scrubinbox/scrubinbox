@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ScrubInbox — Declutter Your Gmail</title>
+  <title>ScrubInbox: Declutter Your Gmail</title>
   <meta name="description" content="A free, open source tool to bulk clean your Gmail inbox by sender. Email bodies stay in your browser; the backend proxies Gmail metadata in memory and stores nothing of your mail.">
   <link rel="icon" type="image/svg+xml" href="/favicon/scrubinbox-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
@@ -705,7 +705,7 @@
         <div class="privacy-content">
           <div class="section-label">Privacy</div>
           <h2>Trust via auditability, not just claims</h2>
-          <p>ScrubInbox's Cloudflare Worker proxies Gmail on your behalf so we can enforce the paid tier at the trust boundary. Email bodies never leave your browser &mdash; the Worker requests <code>format=metadata</code>, so only From, Subject, and label IDs cross the wire. Nothing about your mail is stored: only your account, entitlement, an encrypted refresh token, and running scan/trash counts.</p>
+          <p>ScrubInbox's Cloudflare Worker proxies Gmail on your behalf so we can enforce the paid tier at the trust boundary. Email bodies never leave your browser. The Worker requests <code>format=metadata</code>, so only From, Subject, and label IDs cross the wire. Nothing about your mail is stored: only your account, entitlement, an encrypted refresh token, and running scan/trash counts.</p>
           <ul class="privacy-checks">
             <li>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -721,7 +721,7 @@
             </li>
             <li>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              Fully open source &mdash; audit the code yourself
+              Fully open source: audit the code yourself
             </li>
           </ul>
         </div>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy — ScrubInbox</title>
+  <title>Privacy Policy | ScrubInbox</title>
   <meta name="description" content="ScrubInbox privacy policy. Email bodies never leave your browser; account and purchase data is stored with named sub-processors.">
   <link rel="icon" type="image/svg+xml" href="/favicon/scrubinbox-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
@@ -221,7 +221,7 @@
     <p>This policy describes how ScrubInbox handles your data when you use the hosted app at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a>.</p>
 
     <div class="callout">
-      <strong>The short version:</strong> Email bodies never leave your browser. To enforce the paywall at the trust boundary and stay within Cloudflare's per-request limits, our Cloudflare Worker proxies Gmail on your behalf during a scan &mdash; thread metadata (sender address, subject line, label IDs) transits through the Worker in memory for the duration of each request and is never persisted. We do store a small amount of account and purchase data (your email address, your entitlement, a running count of how many threads you've scanned and trashed, and your Google refresh token encrypted with AES-256-GCM) in a Postgres database at our sub-processor <strong>Neon</strong>. Payments are handled by <strong>Stripe</strong>.
+      <strong>The short version:</strong> Email bodies never leave your browser. To enforce the paywall at the trust boundary and stay within Cloudflare's per-request limits, our Cloudflare Worker proxies Gmail on your behalf during a scan: thread metadata (sender address, subject line, label IDs) transits through the Worker in memory for the duration of each request and is never persisted. We do store a small amount of account and purchase data (your email address, your entitlement, a running count of how many threads you've scanned and trashed, and your Google refresh token encrypted with AES-256-GCM) in a Postgres database at our sub-processor <strong>Neon</strong>. Payments are handled by <strong>Stripe</strong>.
     </div>
 
     <h2>What data ScrubInbox accesses from Google</h2>
@@ -238,27 +238,27 @@
     <p>To operate the hosted service we store the following, and only the following, in our Postgres database at Neon (see sub-processors below):</p>
     <ul>
       <li>Your Google user ID (the stable identifier Google returns) and your email address</li>
-      <li>An <strong>encrypted Google refresh token</strong> — used to mint short-lived access tokens for Gmail API calls without prompting you for consent every hour. Encrypted with AES-256-GCM using a key held only by our Cloudflare Worker; the ciphertext in the database is useless without that key. Never leaves the Worker in plaintext, never sent to your browser.</li>
+      <li>An <strong>encrypted Google refresh token</strong>, used to mint short-lived access tokens for Gmail API calls without prompting you for consent every hour. Encrypted with AES-256-GCM using a key held only by our Cloudflare Worker; the ciphertext in the database is useless without that key. Never leaves the Worker in plaintext, never sent to your browser.</li>
       <li>Your entitlement record: purchase type (currently only <em>lifetime</em>), whether you were an early adopter, and the Stripe checkout session ID and Stripe customer ID that produced it</li>
-      <li>Scan logs: for each cleanup session, only the number of threads scanned and the number of threads trashed — no sender addresses, no subject lines, no thread IDs</li>
+      <li>Scan logs: for each cleanup session, only the number of threads scanned and the number of threads trashed: no sender addresses, no subject lines, no thread IDs</li>
     </ul>
     <p>We do <strong>not</strong> store: email content, subject lines, sender names or addresses, thread IDs, label names, or any Gmail metadata beyond the aggregate counts above.</p>
 
     <h2>What lives in your browser vs. our Worker</h2>
     <p>The domain-grouped scan results and the selection UI live in your browser's memory. To make the paywall round-trip feel less jarring, scan results are temporarily saved to your browser's <code>sessionStorage</code> so they survive the redirect to Stripe and back. <code>sessionStorage</code> is scoped to the browser tab and clears when the tab closes. It is not transmitted anywhere.</p>
-    <p>Gmail API calls themselves run through our Cloudflare Worker. When your browser asks the Worker for a page of scan results, the Worker decrypts your stored Google refresh token, mints a short-lived access token from Google, fetches the current page of Gmail thread metadata with <code>format=metadata</code> (so response payloads contain only From, Subject, and label IDs — no bodies, no attachments), projects the response down to the fields the client needs, and returns them. Access tokens and thread metadata are held in Worker memory for the duration of that single request and never persisted.</p>
+    <p>Gmail API calls themselves run through our Cloudflare Worker. When your browser asks the Worker for a page of scan results, the Worker decrypts your stored Google refresh token, mints a short-lived access token from Google, fetches the current page of Gmail thread metadata with <code>format=metadata</code> (so response payloads contain only From, Subject, and label IDs, with no bodies and no attachments), projects the response down to the fields the client needs, and returns them. Access tokens and thread metadata are held in Worker memory for the duration of that single request and never persisted.</p>
     <p>Routing Gmail through the Worker lets us enforce the paid tier at the trust boundary: the trash endpoint checks your entitlement before touching Gmail. It also keeps a Google access token out of the browser entirely, so a bug or malicious extension in your browser can't lift it and call Gmail on your behalf.</p>
     <p>To identify your session on subsequent requests, our Worker sets an <code>HttpOnly</code> cookie named <code>sb_session</code> containing a signed JSON Web Token that references your user record. <code>HttpOnly</code> means the cookie cannot be read by JavaScript running in your browser, which meaningfully limits the blast radius of any cross-site-scripting bug.</p>
 
     <h2>Sub-processors</h2>
     <p>To operate the hosted service we rely on the following third-party sub-processors. Each is contractually obligated to handle your data only for the purposes described here.</p>
     <ul>
-      <li><strong>Neon, Inc.</strong> (United States) — hosts our Postgres database. Stores: your Google user ID, your email address, your AES-256-GCM-encrypted Google refresh token, your entitlement row, your scan-log counts. <a href="https://neon.com/privacy-policy">Neon Privacy Policy</a>.</li>
-      <li><strong>Stripe, Inc.</strong> (United States) — processes payments as our Merchant of Record via Stripe Managed Payments. Stripe collects and stores your payment method, billing address, and any information you enter during checkout. ScrubInbox never sees your card number. <a href="https://stripe.com/privacy">Stripe Privacy Policy</a>.</li>
-      <li><strong>Cloudflare, Inc.</strong> (United States) — hosts the app and runs the Worker that handles sign-in, API requests, and refresh-token decryption. Cloudflare may log request metadata (IP address, user agent, request path) for DDoS mitigation and performance monitoring. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a>.</li>
-      <li><strong>Google LLC</strong> (United States) — provides Gmail access via OAuth. Handles the sign-in consent flow and every Gmail API call. <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.</li>
+      <li><strong>Neon, Inc.</strong> (United States) hosts our Postgres database. Stores: your Google user ID, your email address, your AES-256-GCM-encrypted Google refresh token, your entitlement row, your scan-log counts. <a href="https://neon.com/privacy-policy">Neon Privacy Policy</a>.</li>
+      <li><strong>Stripe, Inc.</strong> (United States) processes payments as our Merchant of Record via Stripe Managed Payments. Stripe collects and stores your payment method, billing address, and any information you enter during checkout. ScrubInbox never sees your card number. <a href="https://stripe.com/privacy">Stripe Privacy Policy</a>.</li>
+      <li><strong>Cloudflare, Inc.</strong> (United States) hosts the app and runs the Worker that handles sign-in, API requests, and refresh-token decryption. Cloudflare may log request metadata (IP address, user agent, request path) for DDoS mitigation and performance monitoring. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a>.</li>
+      <li><strong>Google LLC</strong> (United States) provides Gmail access via OAuth. Handles the sign-in consent flow and every Gmail API call. <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.</li>
     </ul>
-    <p>We do <strong>not</strong> use a third-party authentication broker — the Google OAuth flow is handled directly by our own Cloudflare Worker.</p>
+    <p>We do <strong>not</strong> use a third-party authentication broker; the Google OAuth flow is handled directly by our own Cloudflare Worker.</p>
 
     <h2>Google API Services Limited Use Disclosure</h2>
     <p>ScrubInbox's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
@@ -273,8 +273,8 @@
     <h2>Cookies and browser storage</h2>
     <p>ScrubInbox uses:</p>
     <ul>
-      <li><strong><code>sb_session</code> cookie</strong> — Set by our Worker after you sign in. Contains a signed JSON Web Token that identifies your account to our backend. <code>HttpOnly</code> (unreadable from JavaScript), <code>Secure</code> (HTTPS-only), <code>SameSite=Lax</code> (not sent on cross-site sub-requests). Expires 24 hours after sign-in, or immediately on sign-out.</li>
-      <li><strong><code>sessionStorage</code></strong> — Scan results are cached here so they survive the redirect to Stripe checkout and back. Cleared when the tab closes.</li>
+      <li><strong><code>sb_session</code> cookie</strong>: Set by our Worker after you sign in. Contains a signed JSON Web Token that identifies your account to our backend. <code>HttpOnly</code> (unreadable from JavaScript), <code>Secure</code> (HTTPS-only), <code>SameSite=Lax</code> (not sent on cross-site sub-requests). Expires 24 hours after sign-in, or immediately on sign-out.</li>
+      <li><strong><code>sessionStorage</code></strong>: Scan results are cached here so they survive the redirect to Stripe checkout and back. Cleared when the tab closes.</li>
     </ul>
     <p>ScrubInbox does not set analytics or advertising cookies.</p>
 
@@ -294,7 +294,7 @@
     <p>Our sub-processors are US-based and process data in the United States. If you are outside the US, using ScrubInbox involves transferring your data to the US. The sub-processors listed above rely on Standard Contractual Clauses or equivalent mechanisms for these transfers where required.</p>
 
     <h2>Security</h2>
-    <p>Communications between your browser and our Worker, and between our Worker and Neon, are encrypted with TLS. Every API endpoint verifies the session cookie's HMAC signature before touching any data, and every database query is scoped to the authenticated user's ID — one user cannot access another user's entitlement or scan logs. Google refresh tokens in our database are additionally encrypted at rest with AES-256-GCM using a key held only by our Worker; the encrypted rows on their own cannot be turned back into working tokens. Payment card data is handled by Stripe and never reaches our servers.</p>
+    <p>Communications between your browser and our Worker, and between our Worker and Neon, are encrypted with TLS. Every API endpoint verifies the session cookie's HMAC signature before touching any data, and every database query is scoped to the authenticated user's ID, so one user cannot access another user's entitlement or scan logs. Google refresh tokens in our database are additionally encrypted at rest with AES-256-GCM using a key held only by our Worker; the encrypted rows on their own cannot be turned back into working tokens. Payment card data is handled by Stripe and never reaches our servers.</p>
 
     <h2>Children's privacy</h2>
     <p>ScrubInbox is not directed at children under 13, and we do not knowingly collect data from children. If you believe a child has provided data to ScrubInbox, please email <a href="mailto:support@scrubinbox.com">support@scrubinbox.com</a> and we will delete it.</p>
