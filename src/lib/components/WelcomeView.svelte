@@ -80,7 +80,7 @@
       <p class="text-sm text-sage-500 mb-6">
         Your payment succeeded, but the entitlement hasn't landed yet. Refresh in
         a minute — or reach out at
-        <a href="mailto:support@scrubinbox.com" class="underline">support@scrubinbox.com</a>
+        <a href="mailto:contact@scrubinbox.com" class="underline">contact@scrubinbox.com</a>
         if it still hasn't shown up.
       </p>
       <button
