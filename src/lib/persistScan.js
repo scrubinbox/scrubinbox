@@ -25,9 +25,9 @@ const KEY = 'scrubinbox:lastScan';
  * @param {object} args.domains          Sorted domain map (as $domains store holds it)
  * @param {Set<string>} args.selectedThreadIds
  * @param {Set<string>} args.expandedDomains
- * @param {string} args.userId           Signed-in user's Supabase id — used
- *                                       on restore to guard against showing
- *                                       data from a different account.
+ * @param {string} args.userId           Signed-in user's id, used on restore
+ *                                       to guard against showing data from a
+ *                                       different account.
  */
 export function saveScanState({
   collectionResult,
