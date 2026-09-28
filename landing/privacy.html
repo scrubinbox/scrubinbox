@@ -216,7 +216,7 @@
 
   <main class="content">
     <h1>Privacy Policy</h1>
-    <p class="last-updated">Last updated: September 6, 2026</p>
+    <p class="last-updated">Last updated: September 28, 2026</p>
 
     <p>This policy describes how ScrubInbox handles your data when you use the hosted app at <a href="https://app.scrubinbox.com">app.scrubinbox.com</a>.</p>
 
@@ -276,7 +276,7 @@
       <li><strong><code>sb_session</code> cookie</strong>: Set by our Worker after you sign in. Contains a signed JSON Web Token that identifies your account to our backend. <code>HttpOnly</code> (unreadable from JavaScript), <code>Secure</code> (HTTPS-only), <code>SameSite=Lax</code> (not sent on cross-site sub-requests). Expires 24 hours after sign-in, or immediately on sign-out.</li>
       <li><strong><code>sessionStorage</code></strong>: Scan results are cached here so they survive the redirect to Stripe checkout and back. Cleared when the tab closes.</li>
     </ul>
-    <p>ScrubInbox does not set analytics or advertising cookies.</p>
+    <p>ScrubInbox does not set analytics or advertising cookies. For page view counts we use Cloudflare Web Analytics, a cookieless measurement tool: it reports anonymous page views and performance timings to our host Cloudflare without cookies, without cross-site tracking, and without storing anything on your device.</p>
 
     <h2>Data retention</h2>
     <p>We retain your account, entitlement record, and scan-log counts for as long as your account exists. If you request deletion (see below), we will delete these records within 30 days of the request. Stripe retains payment records independently under its own retention policies; see the Stripe Privacy Policy linked above.</p>
@@ -314,5 +314,7 @@
     <a href="https://github.com/scrubinbox/scrubinbox">MIT License</a>
   </footer>
 
+    <!-- Cloudflare Web Analytics: cookieless page counts. Site token is public by design. -->
+    <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "7dbdad890b084ed6be1cf13a1216c813"}'></script>
 </body>
 </html>
